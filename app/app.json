@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "Roda Nova",
+    "slug": "wheelai",
+    "scheme": "rodanova",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#16161b",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.rodanova.app"
+    },
+    "android": {
+      "package": "com.rodanova.app",
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": {
+        "backgroundColor": "#16161b",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-image",
+      "expo-sharing",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "backgroundColor": "#16161b",
+          "imageWidth": 180
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Roda Nova precisa das suas fotos para pintar e salvar rodas.",
+          "cameraPermission": "O Roda Nova precisa da câmera para fotografar o carro."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "O Roda Nova precisa acessar suas fotos.",
+          "savePhotosPermission": "O Roda Nova salva as imagens geradas na sua galeria."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "O Roda Nova usa o microfone para buscar carros por voz."
+        }
+      ]
+    ]
+  }
+}

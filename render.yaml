@@ -1,0 +1,46 @@
+# Exemplo para publicar o servidor no Render (render.com). Outras hospedagens (Railway, Fly.io) funcionam parecido.
+# Importante: o plano precisa de DISCO PERSISTENTE (o banco SQLite e as fotos ficam em /data).
+services:
+  - type: web
+    name: roda-nova-api
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: starter
+    healthCheckPath: /health
+    disk:
+      name: dados
+      mountPath: /data
+      sizeGB: 5
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "true"
+      - key: DATA_DIR
+        value: /data
+      - key: IMAGE_PROVIDER
+        value: openrouter
+      - key: OPENROUTER_IMAGE_MODEL
+        value: google/gemini-3.1-flash-image
+      - key: OPENROUTER_TEXT_MODEL
+        value: google/gemini-3.1-flash-lite
+      - key: OPENROUTER_IMAGE_MODALITIES
+        value: text,image
+      # Segredos: preencha no painel do Render (não escreva aqui)
+      - key: JWT_SECRET
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: LEGAL_COMPANY
+        sync: false
+      - key: LEGAL_CNPJ
+        sync: false
+      - key: LEGAL_EMAIL
+        sync: false
