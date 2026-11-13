@@ -7,11 +7,11 @@
     },
     "preview": {
       "distribution": "internal",
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.SEUDOMINIO.com.br" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://roda-nova-api.onrender.com" }
     },
     "production": {
       "autoIncrement": true,
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.SEUDOMINIO.com.br" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://roda-nova-api.onrender.com" }
     }
   },
   "submit": { "production": {} }
