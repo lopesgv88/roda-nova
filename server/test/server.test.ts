@@ -208,6 +208,76 @@ describe("créditos e planos", () => {
   });
 });
 
+describe("cobrança (RevenueCat)", () => {
+  const SECRET = "segredo-de-teste-123";
+  const future = () => Date.now() + 30 * 24 * 60 * 60_000;
+  const signup = async (a: Awaited<ReturnType<typeof buildApp>>, email: string) => {
+    const r = (await a.inject({ method: "POST", url: "/auth/register", payload: { email, password: "123456", acceptTerms: true } })).json();
+    const m = (await a.inject({ method: "GET", url: "/me", headers: { authorization: `Bearer ${r.token}` } })).json();
+    return { token: r.token as string, id: m.id as number };
+  };
+  const me = (a: Awaited<ReturnType<typeof buildApp>>, token: string) =>
+    a.inject({ method: "GET", url: "/me", headers: { authorization: `Bearer ${token}` } }).then((r) => r.json());
+  const hook = (a: Awaited<ReturnType<typeof buildApp>>, event: Record<string, unknown>, auth: string | null = SECRET) =>
+    a.inject({ method: "POST", url: "/billing/revenuecat", payload: { api_version: "1.0", event }, headers: auth === null ? {} : { authorization: auth } });
+
+  it("fica desligado sem a chave secreta e recusa quem não manda a chave certa", async () => {
+    const a = await buildApp();
+    delete process.env.REVENUECAT_WEBHOOK_AUTH;
+    expect((await hook(a, { id: "x1", type: "TEST" })).statusCode).toBe(503);
+    process.env.REVENUECAT_WEBHOOK_AUTH = SECRET;
+    expect((await hook(a, { id: "x2", type: "TEST" }, null)).statusCode).toBe(401);
+    expect((await hook(a, { id: "x3", type: "TEST" }, "errada")).statusCode).toBe(401);
+    expect((await hook(a, { id: "x4", type: "TEST" })).statusCode).toBe(200);
+  });
+
+  it("compra libera o plano e os créditos; o mesmo aviso repetido não credita duas vezes", async () => {
+    process.env.REVENUECAT_WEBHOOK_AUTH = SECRET;
+    const a = await buildApp();
+    const u = await signup(a, "bill1@b.com");
+    const ev = { id: "buy1", type: "INITIAL_PURCHASE", app_user_id: String(u.id), product_id: "pro_mensal:mensal", expiration_at_ms: future() };
+    expect((await hook(a, ev)).statusCode).toBe(200);
+    expect(await me(a, u.token)).toMatchObject({ plan: "pro", credits: 103 });
+    const again = await hook(a, ev);
+    expect(again.json()).toMatchObject({ duplicate: true });
+    expect((await me(a, u.token)).credits).toBe(103);
+  });
+
+  it("renovação soma créditos do mês e vencimento volta ao grátis mantendo as rodas", async () => {
+    process.env.REVENUECAT_WEBHOOK_AUTH = SECRET;
+    const a = await buildApp();
+    const u = await signup(a, "bill2@b.com");
+    const base = { app_user_id: String(u.id), product_id: "basico_mensal:mensal", expiration_at_ms: future() };
+    await hook(a, { id: "r1", type: "INITIAL_PURCHASE", ...base });
+    await hook(a, { id: "r2", type: "RENEWAL", ...base });
+    expect(await me(a, u.token)).toMatchObject({ plan: "basico", credits: 83 });
+    await hook(a, { id: "r3", type: "EXPIRATION", app_user_id: String(u.id), product_id: "basico_mensal:mensal" });
+    expect(await me(a, u.token)).toMatchObject({ plan: "free", credits: 83 });
+  });
+
+  it("cancelamento não tira nada antes de vencer; produto desconhecido, assinatura já vencida e usuário inexistente são ignorados", async () => {
+    process.env.REVENUECAT_WEBHOOK_AUTH = SECRET;
+    const a = await buildApp();
+    const u = await signup(a, "bill3@b.com");
+    const id = String(u.id);
+    await hook(a, { id: "c1", type: "INITIAL_PURCHASE", app_user_id: id, product_id: "estudio_mensal:mensal", expiration_at_ms: future() });
+    await hook(a, { id: "c2", type: "CANCELLATION", app_user_id: id, product_id: "estudio_mensal:mensal" });
+    expect(await me(a, u.token)).toMatchObject({ plan: "estudio", credits: 253 });
+    await hook(a, { id: "c3", type: "INITIAL_PURCHASE", app_user_id: id, product_id: "produto_falso", expiration_at_ms: future() });
+    await hook(a, { id: "c4", type: "RENEWAL", app_user_id: id, product_id: "basico_mensal:mensal", expiration_at_ms: Date.now() - 1000 });
+    expect((await me(a, u.token)).credits).toBe(253);
+    const ghost = await hook(a, { id: "c5", type: "INITIAL_PURCHASE", app_user_id: "$RCAnonymousID:abc", product_id: "pro_mensal:mensal", expiration_at_ms: future() });
+    expect(ghost.json()).toMatchObject({ ok: true, ignored: expect.any(String) });
+    expect((await hook(a, { type: "TEST" })).statusCode).toBe(400);
+  });
+
+  it("os planos pagos têm o ID do produto para o app comprar", async () => {
+    const a = await buildApp();
+    const plans = (await a.inject({ method: "GET", url: "/plans" })).json().plans;
+    expect(plans.filter((p: any) => p.id !== "free").map((p: any) => p.productId)).toEqual(["basico_mensal", "pro_mensal", "estudio_mensal"]);
+  });
+});
+
 describe("segurança, conta e privacidade", () => {
   const prov: ImageProvider = {
     name: "fake3",

@@ -15,7 +15,7 @@ import { legalDoc, legalHtml, TERMS_VERSION } from "./legal.js";
 import { getMailer, type Mailer } from "./mailer.js";
 import { getProvider } from "./providers/index.js";
 import type { ImageProvider } from "./providers/types.js";
-import { PLANS, planById } from "./plans.js";
+import { PLANS, planById, planByProductId } from "./plans.js";
 import { buildEditPrompt, checkScope } from "./scope.js";
 import { editWheelsOnly } from "./wheelEdit.js";
 import { Limiter, LoginGuard } from "./security.js";
@@ -102,7 +102,7 @@ export async function buildApp(opts: AppOptions = {}) {
     expireSub(id);
     const u = db.prepare("SELECT email, plan, credits, terms_accepted_at, subscription_until FROM users WHERE id=?").get(id) as any;
     if (!u) return null;
-    return { email: u.email, plan: u.plan, credits: u.credits, termsAccepted: !!u.terms_accepted_at, subscriptionUntil: u.subscription_until ?? null };
+    return { id, email: u.email, plan: u.plan, credits: u.credits, termsAccepted: !!u.terms_accepted_at, subscriptionUntil: u.subscription_until ?? null };
   };
   /** Apaga do disco todos os arquivos do usuário (nomes começam com "<id>_"). */
   const removeUserFiles = (id: number) => {
@@ -344,6 +344,59 @@ export async function buildApp(opts: AppOptions = {}) {
       db.prepare("UPDATE users SET plan=?, credits = credits + ?, subscription_until=? WHERE id=?").run(plan.id, plan.credits, until, userId);
     }
     return meOf(userId);
+  });
+
+  // ---------- Cobrança (RevenueCat) ----------
+  // O RevenueCat avisa aqui quando alguém assina, renova ou deixa a assinatura vencer.
+  // Configure no painel do RevenueCat: Integrations → Webhooks → URL .../billing/revenuecat
+  // e o mesmo texto secreto em "Authorization header value" e na variável REVENUECAT_WEBHOOK_AUTH.
+  // O app identifica o comprador pelo ID do usuário (Purchases.logIn(String(id))).
+  app.post("/billing/revenuecat", async (req, reply) => {
+    const secret = process.env.REVENUECAT_WEBHOOK_AUTH;
+    if (!secret) return reply.code(503).send({ error: "Cobrança não configurada." });
+    const given = String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
+    const a = Buffer.from(given);
+    const b = Buffer.from(secret.replace(/^Bearer\s+/i, ""));
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return reply.code(401).send({ error: "Não autorizado." });
+
+    const ev = (req.body as any)?.event;
+    if (!ev || typeof ev !== "object" || !ev.id || !ev.type) return reply.code(400).send({ error: "Evento inválido." });
+
+    const eventId = String(ev.id);
+    if (db.prepare("SELECT 1 FROM billing_events WHERE id=?").get(eventId)) return { ok: true, duplicate: true }; // o aviso pode chegar repetido
+
+    const userId = Number(ev.app_user_id); // ID anônimo do RevenueCat ("$RCAnonymousID:...") vira NaN e é ignorado
+    const user = Number.isInteger(userId) && userId > 0 ? (db.prepare("SELECT id FROM users WHERE id=?").get(userId) as any) : undefined;
+    const record = () =>
+      db.prepare("INSERT OR IGNORE INTO billing_events (id, user_id, type, product_id) VALUES (?,?,?,?)").run(eventId, user?.id ?? null, String(ev.type), ev.product_id ? String(ev.product_id) : null);
+    if (!user) {
+      record();
+      return { ok: true, ignored: "usuário desconhecido" };
+    }
+
+    const plan = ev.product_id ? planByProductId(String(ev.product_id)) : undefined;
+    const until = Number(ev.expiration_at_ms) > 0 ? new Date(Number(ev.expiration_at_ms)).toISOString() : null;
+
+    switch (String(ev.type)) {
+      case "INITIAL_PURCHASE":
+      case "RENEWAL":
+      case "PRODUCT_CHANGE": {
+        // Só libera créditos quando o produto é de um plano nosso e a assinatura ainda vale.
+        if (plan && until && new Date(until) > new Date()) {
+          db.prepare("UPDATE users SET plan=?, credits = credits + ?, subscription_until=? WHERE id=?").run(plan.id, plan.credits, until, user.id);
+        }
+        break;
+      }
+      case "EXPIRATION": {
+        // Assinatura acabou: volta ao grátis (as rodas que sobraram continuam).
+        db.prepare("UPDATE users SET plan='free', subscription_until=NULL WHERE id=?").run(user.id);
+        break;
+      }
+      default:
+        break; // CANCELLATION (vale até vencer), BILLING_ISSUE, TEST etc.: só registramos
+    }
+    record();
+    return { ok: true };
   });
 
   // ---------- Biblioteca ----------

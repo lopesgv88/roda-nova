@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, setToken, setUnauthorizedHandler, type Me } from "./api";
+import { stopBilling } from "./billing";
 
 interface AuthState {
   ready: boolean;
@@ -38,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setEmail(null);
     setMe(null);
     setOnboarding(false);
+    void stopBilling();
     await SecureStore.deleteItemAsync(KEY).catch(() => {});
   }, []);
 

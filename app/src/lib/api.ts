@@ -60,9 +60,9 @@ export interface Entry {
 export interface PaintResult { beforeFile: string; afterFile: string; beforeUrl: string; afterUrl: string; credits: number }
 export interface Plan {
   id: string; name: string; credits: number; priceBRL: number;
-  once?: boolean; popular?: boolean; perks: string[];
+  once?: boolean; popular?: boolean; productId?: string; perks: string[];
 }
-export interface Me { email: string; plan: string; credits: number; termsAccepted: boolean; subscriptionUntil: string | null }
+export interface Me { id: number; email: string; plan: string; credits: number; termsAccepted: boolean; subscriptionUntil: string | null }
 export interface HistoryItem {
   id: number; beforeFile: string; afterFile: string; beforeUrl: string; afterUrl: string;
   color: string | null; finish: string | null; createdAt: string;

@@ -4,6 +4,7 @@ import { ActivityIndicator, Alert, ScrollView, Text, View } from "react-native";
 import { Btn, Notice } from "../components/ui";
 import { ApiError, api, type Plan } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { billingAvailable, buy, startBilling } from "../lib/billing";
 import { C } from "../lib/theme";
 
 const brl = (n: number) => `R$ ${n.toFixed(2).replace(".", ",")}`;
@@ -29,6 +30,24 @@ export default function Plans() {
     if (p.id === "free") return leave();
     setBusy(p.id);
     try {
+      // Versão instalada pela loja: compra de verdade (Google Play / App Store) pelo RevenueCat.
+      if (billingAvailable() && p.productId && me) {
+        if (!(await startBilling(me.id))) throw new Error("Não foi possível abrir a compra agora. Tente novamente.");
+        if ((await buy(p.productId)) === "cancelled") return;
+        // O servidor credita as rodas quando o RevenueCat avisa que o pagamento passou (leva alguns segundos).
+        let done = false;
+        for (let i = 0; i < 8 && !done; i++) {
+          done = (await api.me().catch(() => null))?.plan === p.id;
+          if (!done) await new Promise((r) => setTimeout(r, 2000));
+        }
+        await refresh();
+        Alert.alert(
+          done ? "Plano ativado!" : "Pagamento recebido",
+          done ? `Você ganhou ${p.credits} novas rodas no plano ${p.name}.` : "Suas rodas chegam em instantes. Se não aparecerem em alguns minutos, fale com a gente.",
+          [{ text: "Começar", onPress: leave }],
+        );
+        return;
+      }
       await api.selectPlan(p.id);
       await refresh();
       Alert.alert("Plano ativado!", `Você ganhou ${p.credits} novas rodas no plano ${p.name}.`, [{ text: "Começar", onPress: leave }]);

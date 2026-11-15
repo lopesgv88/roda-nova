@@ -9,6 +9,8 @@ export interface Plan {
   /** o plano grátis é concedido uma única vez, no cadastro */
   once?: boolean;
   popular?: boolean;
+  /** ID do produto de assinatura na Play Console / App Store (o mesmo no RevenueCat) */
+  productId?: string;
   perks: string[];
 }
 
@@ -30,6 +32,7 @@ export const PLANS: Plan[] = [
     name: "Básico",
     credits: 40,
     priceBRL: 39.9,
+    productId: "basico_mensal",
     perks: [
       "Transforme a roda do seu cliente em 5 segundos",
       "Organização de antes e depois: ache rápido com 1 clique",
@@ -42,6 +45,7 @@ export const PLANS: Plan[] = [
     credits: 100,
     priceBRL: 79.9,
     popular: true,
+    productId: "pro_mensal",
     perks: [
       "Mostre ao cliente como a roda vai ficar antes de começar o serviço",
       "Organização de antes e depois por voz: nunca mais perca as fotos",
@@ -54,6 +58,7 @@ export const PLANS: Plan[] = [
     name: "Estúdio",
     credits: 250,
     priceBRL: 199.9,
+    productId: "estudio_mensal",
     perks: [
       "Feche mais serviços mostrando o resultado na hora",
       "Organização de antes e depois por voz: nunca mais perca as fotos",
@@ -65,3 +70,12 @@ export const PLANS: Plan[] = [
 ];
 
 export const planById = (id: string) => PLANS.find((p) => p.id === id);
+
+/**
+ * Acha o plano pelo ID do produto. No Google Play o RevenueCat manda "assinatura:plano-base"
+ * (ex.: "pro_mensal:mensal"), então só vale a parte antes dos dois-pontos.
+ */
+export const planByProductId = (productId: string) => {
+  const base = String(productId ?? "").split(":")[0];
+  return PLANS.find((p) => p.productId && p.productId === base);
+};

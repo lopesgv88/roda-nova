@@ -53,6 +53,13 @@ CREATE TABLE IF NOT EXISTS generations (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_generations_user ON generations(user_id);
+CREATE TABLE IF NOT EXISTS billing_events (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER,
+  type TEXT NOT NULL,
+  product_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 CREATE TABLE IF NOT EXISTS password_resets (
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   code_hash TEXT NOT NULL,
