@@ -1,7 +1,7 @@
 import { File, Paths } from "expo-file-system";
 import * as MediaLibrary from "expo-media-library/legacy";
 import * as Sharing from "expo-sharing";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import { fileUrl } from "./api";
 
 async function download(url: string): Promise<File> {
@@ -13,7 +13,11 @@ async function download(url: string): Promise<File> {
 export async function saveToGallery(url: string) {
   try {
     const p = await MediaLibrary.requestPermissionsAsync(true); // só gravar, sem ler a galeria
-    if (!p.granted) return Alert.alert("Permissão necessária", "Permita salvar fotos nas configurações do celular.");
+    if (!p.granted) {
+      // No Android o app não pede acesso à galeria: abre o menu de compartilhar, onde dá para salvar a imagem.
+      if (Platform.OS === "android") return shareImage(url);
+      return Alert.alert("Permissão necessária", "Permita salvar fotos nas configurações do celular.");
+    }
     const f = await download(url);
     await MediaLibrary.saveToLibraryAsync(f.uri);
     Alert.alert("Salvo!", "A imagem foi salva na galeria do seu celular.");
