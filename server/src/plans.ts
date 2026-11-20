@@ -31,7 +31,7 @@ export const PLANS: Plan[] = [
     id: "basico",
     name: "Básico",
     credits: 40,
-    priceBRL: 39.9,
+    priceBRL: 39.99,
     productId: "basico_mensal",
     perks: [
       "Transforme a roda do seu cliente em 5 segundos",
@@ -43,7 +43,7 @@ export const PLANS: Plan[] = [
     id: "pro",
     name: "Pro",
     credits: 100,
-    priceBRL: 79.9,
+    priceBRL: 79.99,
     popular: true,
     productId: "pro_mensal",
     perks: [
@@ -57,7 +57,7 @@ export const PLANS: Plan[] = [
     id: "estudio",
     name: "Estúdio",
     credits: 250,
-    priceBRL: 199.9,
+    priceBRL: 199.99,
     productId: "estudio_mensal",
     perks: [
       "Feche mais serviços mostrando o resultado na hora",
