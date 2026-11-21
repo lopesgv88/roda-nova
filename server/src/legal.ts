@@ -2,7 +2,7 @@
  * Textos legais do Roda Nova (RASCUNHO). Preencha as variáveis LEGAL_* no .env e peça a um advogado
  * para revisar antes de publicar nas lojas.
  */
-export type LegalId = "privacy" | "terms";
+export type LegalId = "privacy" | "terms" | "deletion";
 
 const v = () => ({
   company: process.env.LEGAL_COMPANY || "[PREENCHER: nome do MEI / razão social]",
@@ -102,8 +102,35 @@ ${email}.`,
   };
 }
 
+function deletion() {
+  const { company, cnpj, email, updated } = v();
+  return {
+    title: "Exclusão de conta e dados",
+    body: `Última atualização: ${updated}
+
+Aplicativo: Roda Nova. Desenvolvedor: ${company}, CNPJ ${cnpj}.
+
+Como excluir sua conta pelo app
+1. Abra o Roda Nova e entre na sua conta.
+2. Vá na aba Conta e toque em "Excluir minha conta".
+3. Confirme com a sua senha.
+
+Como pedir a exclusão sem acessar o app
+Envie um e-mail para ${email} a partir do endereço cadastrado na conta, com o assunto "Excluir minha conta Roda Nova". Atendemos o pedido em até 15 dias.
+
+O que é apagado
+Sua conta (e-mail e senha), a biblioteca de carros e rodas, o histórico de gerações, as fotos enviadas e as imagens geradas, e os códigos de acesso. A exclusão é definitiva.
+
+O que pode ser mantido
+Registros de cobrança e notas relacionados a assinaturas podem ser guardados pelo tempo exigido pela legislação fiscal. As gravações de voz da busca não são armazenadas: são processadas e descartadas.
+
+Assinaturas
+Excluir a conta não cancela automaticamente a assinatura na Google Play. Cancele antes em Play Store > Pagamentos e assinaturas > Assinaturas.`,
+  };
+}
+
 export function legalDoc(id: string) {
-  return id === "privacy" ? privacy() : id === "terms" ? terms() : null;
+  return id === "privacy" ? privacy() : id === "terms" ? terms() : id === "deletion" ? deletion() : null;
 }
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

@@ -327,6 +327,7 @@ export async function buildApp(opts: AppOptions = {}) {
   };
   app.get("/privacidade", page("privacy"));
   app.get("/termos", page("terms"));
+  app.get("/excluir-conta", page("deletion"));
 
   app.get("/plans", async () => ({ plans: PLANS }));
 
