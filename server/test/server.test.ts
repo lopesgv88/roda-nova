@@ -102,6 +102,23 @@ describe("API", () => {
     expect(r.json()).toMatchObject({ text: "Civic 2018 preto", model: "Civic", year: 2018, color: "preto" });
   });
 
+  it("voz: silêncio, áudio curto e eco da dica viram aviso amigável (sem 502)", async () => {
+    const send = async (tr: () => Promise<string>) => {
+      const a = await buildApp({ provider, transcribe: tr });
+      const reg = await a.inject({ method: "POST", url: "/auth/register", payload: { email: `v${Math.random()}@b.com`, password: "123456", acceptTerms: true } });
+      const m = multipart({}, { name: "audio", data: Buffer.alloc(2000, 1) });
+      return a.inject({ method: "POST", url: "/voice/transcribe", payload: m.payload, headers: { ...m.headers, authorization: `Bearer ${reg.json().token}` } });
+    };
+    const echo = await send(async () => "Busca de carros por voz. Exemplos de falas: Civic 2018. Marcas e modelos: Honda, Civic");
+    expect(echo.statusCode).toBe(422);
+    expect(echo.json().error).toMatch(/Não ouvi nada/);
+    const short = await send(async () => { throw new Error("OpenAI 400: Audio file is too short"); });
+    expect(short.statusCode).toBe(422);
+    expect(short.json().error).toMatch(/Não ouvi nada/);
+    const down = await send(async () => { throw new Error("OpenAI 500: erro"); });
+    expect(down.statusCode).toBe(502);
+  });
+
   it("acha 'opala roda cinza' e 'corolla roda preta' (cor + carro)", async () => {
     const a = await buildApp({ provider });
     const reg = await a.inject({ method: "POST", url: "/auth/register", payload: { email: "c@b.com", password: "123456", acceptTerms: true } });

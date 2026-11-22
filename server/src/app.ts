@@ -528,9 +528,13 @@ export async function buildApp(opts: AppOptions = {}) {
       text = await transcribe(audio, filename);
     } catch (e) {
       console.error("[transcribe]", e);
+      // áudio curto demais / sem conteúdo: a OpenAI recusa com 400 (erro nosso não é)
+      if (/OpenAI 400/.test(String((e as Error)?.message))) return reply.code(422).send({ error: "Não ouvi nada. Toque no microfone, espere o sinal e fale o carro e a cor da roda." });
       return reply.code(502).send({ error: "Não consegui entender o áudio agora. Tente de novo ou digite." });
     }
-    if (!text) return reply.code(422).send({ error: "Não entendi o que foi dito. Tente de novo." });
+    // em silêncio o transcritor às vezes devolve a própria dica ("Busca de carros por voz...")
+    if (/busca de carros por voz|marcas e modelos:/i.test(text)) text = "";
+    if (!text) return reply.code(422).send({ error: "Não ouvi nada. Toque no microfone, espere o sinal e fale o carro e a cor da roda." });
     const { make, model, year, color, finish } = parseQuery(text);
     return { text, make, model, year, color, finish };
   });
