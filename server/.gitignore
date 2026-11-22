@@ -1,4 +1,6 @@
 node_modules
+# fontes dos ícones da versão web (o Expo as coloca dentro de um caminho com node_modules)
+!web/assets/node_modules
 .env
 data
 data-test
