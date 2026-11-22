@@ -91,6 +91,8 @@ export async function buildApp(opts: AppOptions = {}) {
   if (existsSync(path.join(webRoot, "index.html"))) {
     await app.register(fstatic, { root: webRoot, prefix: "/app/", decorateReply: false });
     app.get("/app", async (_req, reply) => reply.redirect("/app/"));
+    // o endereço curto (ex.: app.rodanovaapp.com) leva direto ao app
+    app.get("/", async (_req, reply) => reply.redirect("/app/"));
     app.setNotFoundHandler(async (req, reply) => {
       // telas internas do app (ex.: /app/library) devolvem o index.html; o resto segue 404 normal
       if (req.method === "GET" && req.url.startsWith("/app/") && !path.extname(req.url.split("?")[0]))

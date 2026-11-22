@@ -223,6 +223,9 @@ describe("créditos e planos", () => {
     expect(inner.statusCode).toBe(200);
     expect(inner.body).toContain("<html");
     expect((await a.inject({ method: "GET", url: "/app" })).statusCode).toBe(302);
+    const home = await a.inject({ method: "GET", url: "/" });
+    expect(home.statusCode).toBe(302);
+    expect(home.headers.location).toBe("/app/");
     // fora de /app/ continua 404 de API e a saúde segue ok
     expect((await a.inject({ method: "GET", url: "/nao-existe" })).statusCode).toBe(404);
     expect((await a.inject({ method: "GET", url: "/health" })).statusCode).toBe(200);
