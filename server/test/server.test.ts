@@ -197,6 +197,29 @@ describe("créditos e planos", () => {
     expect(ok.json()).toMatchObject({ plan: "pro", credits: 103 });
   });
 
+  it("plano grátis guarda no máximo 7 rodas; plano pago é ilimitado", async () => {
+    const b = await buildApp({ provider: prov, unlockPlans: true });
+    const t = await signup(b, "lib1@b.com");
+    const h = { authorization: `Bearer ${t}` };
+    const add = (n: number) => {
+      const m = multipart({ make: "Honda", model: `Civic ${n}` }, { name: "after", data: png });
+      return b.inject({ method: "POST", url: "/library/entries", payload: m.payload, headers: { ...m.headers, ...h } });
+    };
+    for (let i = 1; i <= 7; i++) expect((await add(i)).statusCode).toBe(200);
+    const full = await add(8);
+    expect(full.statusCode).toBe(402);
+    expect(full.json().code).toBe("library_full");
+    // apagar libera uma vaga
+    const list = (await b.inject({ method: "GET", url: "/library/entries", headers: h })).json();
+    expect(list).toHaveLength(7);
+    await b.inject({ method: "DELETE", url: `/library/entries/${list[0].id}`, headers: h });
+    expect((await add(9)).statusCode).toBe(200);
+    // plano pago: sem limite
+    await b.inject({ method: "POST", url: "/plans/select", payload: { plan: "basico" }, headers: h });
+    for (let i = 10; i <= 12; i++) expect((await add(i)).statusCode).toBe(200);
+    expect((await b.inject({ method: "GET", url: "/library/entries", headers: h })).json()).toHaveLength(10);
+  });
+
   it("assinatura vencida volta para o grátis e mantém os créditos", async () => {
     const b = await buildApp({ provider: prov, unlockPlans: true });
     const t = await signup(b, "sub1@b.com");

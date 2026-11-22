@@ -15,7 +15,7 @@ import { legalDoc, legalHtml, TERMS_VERSION } from "./legal.js";
 import { getMailer, type Mailer } from "./mailer.js";
 import { getProvider } from "./providers/index.js";
 import type { ImageProvider } from "./providers/types.js";
-import { PLANS, planById, planByProductId } from "./plans.js";
+import { FREE_LIBRARY_LIMIT, PLANS, planById, planByProductId } from "./plans.js";
 import { buildEditPrompt, checkScope } from "./scope.js";
 import { editWheelsOnly } from "./wheelEdit.js";
 import { Limiter, LoginGuard } from "./security.js";
@@ -418,6 +418,17 @@ export async function buildApp(opts: AppOptions = {}) {
 
   app.post("/library/entries", { preHandler: auth }, async (req, reply) => {
     const user = uid(req);
+    // Plano grátis tem limite de rodas na biblioteca; os planos pagos são ilimitados.
+    expireSub(user);
+    const owner = db.prepare("SELECT plan FROM users WHERE id=?").get(user) as { plan: string } | undefined;
+    if (owner?.plan === "free") {
+      const { n } = db.prepare("SELECT COUNT(*) AS n FROM entries WHERE user_id=?").get(user) as { n: number };
+      if (n >= FREE_LIBRARY_LIMIT)
+        return reply.code(402).send({
+          error: `Você chegou ao limite de ${FREE_LIBRARY_LIMIT} rodas do plano grátis. Escolha um plano para guardar rodas sem limite.`,
+          code: "library_full",
+        });
+    }
     const fields: Record<string, string> = {};
     const photos: Array<{ kind: string; file: string }> = [];
     for await (const part of req.parts()) {

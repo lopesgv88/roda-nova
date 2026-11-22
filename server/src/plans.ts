@@ -23,7 +23,7 @@ export const PLANS: Plan[] = [
     once: true,
     perks: [
       "Veja sua roda pintada antes de pintar",
-      "Organização de antes e depois: nunca mais perca as fotos",
+      "Guarde até 7 rodas na biblioteca de antes e depois",
       "Busca por voz com IA",
     ],
   },
@@ -35,7 +35,7 @@ export const PLANS: Plan[] = [
     productId: "basico_mensal",
     perks: [
       "Transforme a roda do seu cliente em 5 segundos",
-      "Organização de antes e depois: ache rápido com 1 clique",
+      "Biblioteca de antes e depois sem limite: ache rápido com 1 clique",
       "Busca modelos salvos pela voz com IA",
     ],
   },
@@ -48,7 +48,7 @@ export const PLANS: Plan[] = [
     productId: "pro_mensal",
     perks: [
       "Mostre ao cliente como a roda vai ficar antes de começar o serviço",
-      "Organização de antes e depois por voz: nunca mais perca as fotos",
+      "Biblioteca de antes e depois sem limite: nunca mais perca as fotos",
       "Busca por voz com IA",
       "Histórico de tudo o que você já fez",
     ],
@@ -61,7 +61,7 @@ export const PLANS: Plan[] = [
     productId: "estudio_mensal",
     perks: [
       "Feche mais serviços mostrando o resultado na hora",
-      "Organização de antes e depois por voz: nunca mais perca as fotos",
+      "Biblioteca de antes e depois sem limite: nunca mais perca as fotos",
       "Busca por voz com IA",
       "Histórico de tudo o que você já fez",
       "Para oficinas e lojas de rodas com muito movimento",
@@ -69,7 +69,10 @@ export const PLANS: Plan[] = [
   },
 ];
 
-export const planById = (id: string) => PLANS.find((p) => p.id === id);
+/** Plano grátis: máximo de rodas (entradas) na biblioteca. Os planos pagos não têm limite. */
+export const FREE_LIBRARY_LIMIT = 7;
+
+export const planById =(id: string) => PLANS.find((p) => p.id === id);
 
 /**
  * Acha o plano pelo ID do produto. No Google Play o RevenueCat manda "assinatura:plano-base"
