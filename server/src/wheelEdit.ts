@@ -17,7 +17,39 @@ export interface WheelEditInfo {
 const PAD = 0.18; // folga ao redor das rodas no recorte
 const MASK_SCALE = 1.04; // a máscara cobre a caixa toda da roda (para não sobrar borda do aro sem pintar); a borda é suave
 const MAX_CROP_SIDE = 1280; // recorte enviado à IA (lado maior)
+const MIN_SEND_SIDE = 768; // recorte pequeno é ampliado até aqui: com poucos pixels a IA "reinventa" o enquadramento
 const MAX_CROP_AREA = 0.62; // se o recorte cobrir mais que isso da foto, não compensa recortar
+/** Diferença média (0-255) permitida FORA das rodas entre a foto original e o resultado da IA. Acima disso o carro mudou. */
+const DRIFT_MAX = Number(process.env.WHEEL_DRIFT_MAX ?? 18);
+const ATTEMPTS = 2;
+
+/** A IA devolveu o carro alterado (tamanho da roda, para-choque, enquadramento) e não foi possível corrigir. */
+export class EditDriftError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "EditDriftError";
+  }
+}
+
+/**
+ * Compara a foto original e o resultado só FORA das rodas (onde nada deveria mudar). Devolve a diferença média
+ * (0 = idêntico). Brilho geral é compensado, porque a IA pode clarear/escurecer a foto toda de leve.
+ */
+async function driftScore(orig: Buffer, patch: Buffer, alpha: Buffer, w: number, h: number): Promise<number> {
+  const S = 64, SH = Math.max(16, Math.round((S * h) / w));
+  const small = (b: Buffer) => sharp(b).resize(S, SH, { fit: "fill" }).greyscale().raw().toBuffer();
+  const [a, b] = await Promise.all([small(orig), small(patch)]);
+  const m = await sharp(alpha, { raw: { width: w, height: h, channels: 1 } }).resize(S, SH, { fit: "fill" }).greyscale().raw().toBuffer();
+  const n = Math.min(a.length, b.length, m.length);
+  const idx: number[] = [];
+  for (let i = 0; i < n; i++) if (m[i] < 25) idx.push(i); // fora das rodas
+  if (idx.length < 50) return 0;
+  const ma = idx.reduce((s, i) => s + a[i], 0) / idx.length;
+  const mb = idx.reduce((s, i) => s + b[i], 0) / idx.length;
+  const score = idx.reduce((s, i) => s + Math.abs(a[i] - ma - (b[i] - mb)), 0) / idx.length;
+  // se algo deu errado na conta, trata como "alterado" (melhor recusar do que entregar o carro deformado)
+  return Number.isFinite(score) ? score : Infinity;
+}
 
 export async function editWheelsOnly(
   provider: ImageProvider,
@@ -58,23 +90,13 @@ export async function editWheelsOnly(
 
   const crop = { left, top, width, height };
   const cropBuf = await sharp(image.data).extract(crop).jpeg({ quality: 92 }).toBuffer();
-  const toSend = await sharp(cropBuf).resize({ width: MAX_CROP_SIDE, height: MAX_CROP_SIDE, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 92 }).toBuffer();
-
-  const edited = await provider.edit({ data: toSend, mime: "image/jpeg" }, prompt);
-  const em = await sharp(edited.data).metadata();
-  if (!em.width || !em.height) return full("resposta sem dimensões");
-  // a IA precisa devolver o mesmo enquadramento; senão a colagem ficaria desalinhada
-  const sentAspect = (await sharp(toSend).metadata()).width! / (await sharp(toSend).metadata()).height!;
-  if (Math.abs(em.width / em.height / sentAspect - 1) > 0.06) {
-    if (whole) {
-      onInfo?.({ mode: "full", reason: "a IA mudou o formato da foto" });
-      return edited; // já é a foto inteira: usa como veio (não dá para colar alinhado)
-    }
-    return full("a IA mudou o formato do recorte"); // refaz com a foto inteira
-  }
-
-  // devolve o recorte editado ao tamanho original do recorte
-  const patch = await sharp(edited.data).resize(width, height, { fit: "fill" }).removeAlpha().toBuffer();
+  // recorte pequeno é ampliado (a IA devolve imagens grandes; com poucos pixels ela muda o enquadramento);
+  // recorte grande é reduzido
+  const longSide = Math.max(width, height);
+  const target = longSide < MIN_SEND_SIDE ? MIN_SEND_SIDE : Math.min(longSide, MAX_CROP_SIDE);
+  const toSend = await sharp(cropBuf).resize({ width: target, height: target, fit: "inside", kernel: "lanczos3" }).jpeg({ quality: 92 }).toBuffer();
+  const sm = await sharp(toSend).metadata();
+  const sentAspect = sm.width! / sm.height!;
 
   // máscara: elipses das rodas, com borda suave
   const ell = boxes
@@ -86,13 +108,30 @@ export async function editWheelsOnly(
   const maskSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="#000"/>${ell}</svg>`;
   const sigma = Math.max(2, Math.min(width, height) * 0.012);
   const alpha = await sharp(Buffer.from(maskSvg)).blur(sigma).greyscale().raw().toBuffer({ resolveWithObject: true });
-  const patchRgba = await sharp(patch)
-    .joinChannel(alpha.data, { raw: { width: alpha.info.width, height: alpha.info.height, channels: 1 } })
-    .png()
-    .toBuffer();
 
-  const merged = await sharp(cropBuf).composite([{ input: patchRgba }]).jpeg({ quality: 93 }).toBuffer();
-  const out = await sharp(image.data).composite([{ input: merged, left, top }]).jpeg({ quality: 93 }).toBuffer();
-  onInfo?.({ mode: whole ? "whole" : "crop", crop });
-  return { data: out, mime: "image/jpeg" };
+  // A IA precisa devolver o MESMO enquadramento (só a roda muda). Se vier com outro formato ou o carro mudou
+  // fora das rodas (roda menor, para-choque duplicado...), tenta de novo; se ainda vier torto, falha (o crédito volta).
+  let lastReason = "";
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    const edited = await provider.edit({ data: toSend, mime: "image/jpeg" }, prompt);
+    const em = await sharp(edited.data).metadata();
+    if (!em.width || !em.height) { lastReason = "resposta sem dimensões"; continue; }
+    if (Math.abs(em.width / em.height / sentAspect - 1) > 0.06) { lastReason = "a IA mudou o formato do recorte"; continue; }
+
+    // devolve o recorte editado ao tamanho original do recorte
+    const patch = await sharp(edited.data).resize(width, height, { fit: "fill" }).removeAlpha().toBuffer();
+    const drift = await driftScore(cropBuf, patch, alpha.data, alpha.info.width, alpha.info.height);
+    if (drift > DRIFT_MAX) { lastReason = `a IA alterou o carro fora da roda (diferença ${drift.toFixed(1)})`; continue; }
+
+    const patchRgba = await sharp(patch)
+      .joinChannel(alpha.data, { raw: { width: alpha.info.width, height: alpha.info.height, channels: 1 } })
+      .png()
+      .toBuffer();
+    const merged = await sharp(cropBuf).composite([{ input: patchRgba }]).jpeg({ quality: 93 }).toBuffer();
+    const out = await sharp(image.data).composite([{ input: merged, left, top }]).jpeg({ quality: 93 }).toBuffer();
+    onInfo?.({ mode: whole ? "whole" : "crop", reason: `diferença ${drift.toFixed(1)}, tentativa ${attempt}`, crop });
+    return { data: out, mime: "image/jpeg" };
+  }
+  onInfo?.({ mode: "full", reason: `recusado: ${lastReason}` });
+  throw new EditDriftError(lastReason);
 }

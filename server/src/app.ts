@@ -18,7 +18,7 @@ import { getProvider } from "./providers/index.js";
 import type { ImageProvider } from "./providers/types.js";
 import { FREE_LIBRARY_LIMIT, PLANS, planById, planByProductId } from "./plans.js";
 import { buildEditPrompt, checkScope } from "./scope.js";
-import { editWheelsOnly } from "./wheelEdit.js";
+import { EditDriftError, editWheelsOnly } from "./wheelEdit.js";
 import { Limiter, LoginGuard } from "./security.js";
 import { openaiTranscribe, type Transcriber } from "./transcribe.js";
 
@@ -265,6 +265,8 @@ export async function buildApp(opts: AppOptions = {}) {
     } catch (e) {
       db.prepare("UPDATE users SET credits = credits + 1 WHERE id=?").run(userId);
       console.error("[edit]", e);
+      if (e instanceof EditDriftError)
+        return reply.code(502).send({ error: "A IA alterou o carro além da roda e preferi não entregar o resultado. Seu crédito foi devolvido: tente de novo ou use uma foto mais nítida, com a roda bem visível." });
       return reply.code(502).send({ error: "A geração falhou. Tente novamente em instantes." });
     }
     const user = uid(req);

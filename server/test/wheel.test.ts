@@ -75,7 +75,7 @@ describe("pintar só a roda (recorta, pinta e cola de volta)", () => {
     expect(size).toEqual({ w: 1200, h: 800 });
   });
 
-  it("se a IA devolver o recorte em outro formato, refaz com a foto inteira (não cola desalinhado)", async () => {
+  it("se a IA devolver o recorte em outro formato, tenta o recorte de novo (nunca cola desalinhado nem refaz a foto inteira)", async () => {
     const orig = await solid(1200, 800, { r: 200, g: 200, b: 200 });
     let calls = 0;
     const prov: ImageProvider = {
@@ -90,7 +90,7 @@ describe("pintar só a roda (recorta, pinta e cola de volta)", () => {
     let info: WheelEditInfo | undefined;
     await editWheelsOnly(prov, { data: orig, mime: "image/jpeg" }, "azul", WHEELS, (i) => (info = i));
     expect(calls).toBe(2);
-    expect(info?.mode).toBe("full");
+    expect(info?.mode).toBe("crop"); // a segunda tentativa veio certa e foi colada só nas rodas
   });
 
   it("roda que ocupa a foto toda (roda solta): não recorta, mas só a roda muda e o tamanho original é mantido", async () => {
