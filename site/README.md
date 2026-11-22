@@ -9,4 +9,4 @@ Site estático (HTML/CSS/JS, sem build). Abra `index.html` ou publique a pasta e
 - Dados estruturados (JSON-LD) no `<head>` para SEO local.
 
 ## Logotipo
-`logo.svg` (branco, para fundo escuro), `logo-dark.svg` (preto, para fundo claro) e `favicon.svg`. Vetor puro, sem fonte, escala sem perder qualidade.
+`logo.svg` (branco, para fundo escuro), `logo-dark.svg` (preto, para fundo claro) e `favicon.svg`. Vetor (letras convertidas em curvas, tipografia Jost), sem dependência de fonte, escala sem perder qualidade.
