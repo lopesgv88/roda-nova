@@ -88,9 +88,9 @@ export default function Library() {
           </View>
         ) : null}
 
-        {voice.listening ? <Text style={{ color: C.accent, marginTop: 10 }}>Ouvindo… diga o carro e a cor da roda (para sozinho quando você terminar)</Text> : null}
-        {voice.processing ? <Text style={{ color: C.muted, marginTop: 10 }}>Entendendo o que você disse…</Text> : null}
-        {voice.error ? <Text style={{ color: C.danger, marginTop: 10 }}>{voice.error}</Text> : null}
+        {voice.listening ? <Text style={{ color: "#fff", marginTop: 10 }}>Ouvindo… diga o carro e a cor da roda (para sozinho quando você terminar)</Text> : null}
+        {voice.processing ? <Text style={{ color: "#fff", marginTop: 10 }}>Entendendo o que você disse…</Text> : null}
+        {voice.error ? <Text style={{ color: C.accent, marginTop: 10 }}>{voice.error}</Text> : null}
       </View>
 
       {items === null && !err ? <ActivityIndicator color={C.accent} style={{ marginTop: 40 }} /> : null}

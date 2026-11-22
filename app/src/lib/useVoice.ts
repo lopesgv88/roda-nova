@@ -10,7 +10,7 @@ const NO_SPEECH_MS = 5000; // ninguém falou -> cancela
 const MAX_MS = 10000; // limite de segurança
 
 const OPTIONS = { ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true };
-const START_SOUND_MS = 360; // espera o "ding" acabar para o microfone não gravar o som
+const START_SOUND_MS = 480; // o "ding" dura ~425ms: espera acabar (sem cortar) antes de abrir o microfone
 const MIN_RECORD_MS = 800; // gravação mais curta que isso é toque sem querer: nem manda para o servidor
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -26,8 +26,10 @@ export function useVoice(onResult: (r: Voice) => void) {
   const doneSound = useAudioPlayer(require("../../assets/sounds/done.wav"));
   const ding = (p: typeof startSound) => {
     try {
-      p.seekTo(0);
-      p.play();
+      // volta ao início e SÓ DEPOIS toca (tocar antes do seekTo terminar causa falha/estalo)
+      Promise.resolve(p.seekTo(0))
+        .catch(() => {})
+        .then(() => p.play());
     } catch {}
   };
   const [listening, setListening] = useState(false);
