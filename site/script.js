@@ -24,4 +24,26 @@ document.querySelectorAll('form[data-quote]').forEach(f=>{
     }
   });
 });
+// before/after slider: two sweeps left<->right, then user control
+(function(){
+  const ba=document.getElementById('ba');if(!ba)return;
+  const range=ba.querySelector('.ba-range');
+  const set=v=>{ba.style.setProperty('--pos',v+'%');range.value=v};
+  range.addEventListener('input',()=>{stop=true;set(range.value)});
+  let stop=false;
+  const keys=[[50,0],[8,900],[92,1500],[8,1500],[92,1500],[50,1000]]; // [target%, duration ms]
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce)return;
+  let i=1,from=50,t0=null;
+  const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+  function step(ts){
+    if(stop)return;
+    if(t0===null)t0=ts;
+    const [to,dur]=keys[i];const p=Math.min((ts-t0)/dur,1);
+    set(from+(to-from)*ease(p));
+    if(p>=1){from=to;i++;t0=null;if(i>=keys.length)return}
+    requestAnimationFrame(step);
+  }
+  setTimeout(()=>requestAnimationFrame(step),700);
+})();
 document.getElementById('year').textContent=new Date().getFullYear();

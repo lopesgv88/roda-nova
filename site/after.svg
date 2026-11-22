@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+<defs>
+<linearGradient id="w" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f5f6"/><stop offset="1" stop-color="#d9dde1"/></linearGradient>
+<pattern id="g" width="400" height="300" patternUnits="userSpaceOnUse"><rect width="400" height="300" fill="url(#w)"/><path d="M0 0H400M0 0V300" stroke="#c4c9ce" stroke-width="3"/><path d="M40 260 Q160 120 380 40" stroke="#fff" stroke-width="2" opacity=".6" fill="none"/></pattern>
+<pattern id="fl" width="300" height="140" patternUnits="userSpaceOnUse"><rect width="300" height="140" fill="#2d3237"/><path d="M0 0H300M0 0V140" stroke="#1b1e22" stroke-width="4"/><path d="M30 120 Q150 40 280 20" stroke="#4a5158" stroke-width="2" fill="none"/></pattern>
+<linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".5" stop-color="#cfd8de" stop-opacity=".18"/><stop offset="1" stop-color="#fff" stop-opacity=".4"/></linearGradient>
+<linearGradient id="wood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a3f45"/><stop offset="1" stop-color="#22262a"/></linearGradient>
+<radialGradient id="glow" cx=".5" cy=".3" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="1600" height="900" fill="url(#g)"/>
+<rect y="640" width="1600" height="260" fill="url(#fl)"/>
+<rect y="636" width="1600" height="8" fill="#14171a"/>
+<!-- shower niche + tile accent band -->
+<rect x="130" y="250" width="200" height="120" fill="#c6ccd1"/><rect x="142" y="262" width="176" height="96" fill="#aeb5bb"/>
+<rect y="396" width="760" height="10" fill="#14171a" opacity=".85"/>
+<!-- frameless glass shower -->
+<rect x="70" y="60" width="680" height="580" fill="url(#glass)" stroke="#e8edf0" stroke-width="5"/>
+<path d="M120 80 L330 620" stroke="#fff" stroke-width="22" opacity=".25"/><path d="M420 80 L520 620" stroke="#fff" stroke-width="10" opacity=".2"/>
+<rect x="560" y="300" width="10" height="120" rx="5" fill="#cfd4d8"/>
+<!-- rain head -->
+<rect x="170" y="60" width="10" height="70" fill="#d7dce0"/><rect x="110" y="120" width="130" height="14" rx="7" fill="#e9edf0"/>
+<g stroke="#fff" stroke-width="2" opacity=".6"><path d="M130 140V340M150 140V360M170 140V330M190 140V350M210 140V335M225 140V355"/></g>
+<!-- floating vanity -->
+<rect x="900" y="470" width="520" height="120" rx="8" fill="url(#wood)"/>
+<rect x="920" y="486" width="230" height="90" rx="4" fill="#2b3035"/><rect x="1170" y="486" width="230" height="90" rx="4" fill="#2b3035"/>
+<rect x="1100" y="520" width="100" height="6" rx="3" fill="#c9cfd4"/>
+<rect x="880" y="436" width="560" height="38" rx="6" fill="#fafafa"/>
+<ellipse cx="1160" cy="446" rx="150" ry="16" fill="#e6e9ec"/>
+<rect x="1154" y="372" width="12" height="62" rx="6" fill="#d9dde0"/><rect x="1154" y="368" width="52" height="10" rx="5" fill="#d9dde0"/>
+<rect x="900" y="590" width="520" height="14" fill="#000" opacity=".25"/>
+<!-- round mirror + led glow -->
+<circle cx="1160" cy="240" r="150" fill="url(#glow)"/>
+<circle cx="1160" cy="240" r="128" fill="#eef3f6" stroke="#14171a" stroke-width="10"/>
+<path d="M1070 200 Q1130 120 1230 160" stroke="#fff" stroke-width="16" opacity=".8" fill="none"/>
+<!-- plant + towel -->
+<rect x="1470" y="380" width="14" height="260" fill="#14171a"/>
+<rect x="1430" y="400" width="90" height="170" rx="6" fill="#f2f2f2"/><rect x="1430" y="400" width="90" height="26" rx="6" fill="#d7d9db"/>
+<circle cx="1530" cy="600" r="34" fill="#e8eaec"/><path d="M1530 570 Q1500 520 1520 490 M1530 570 Q1560 530 1550 500" stroke="#4f7a58" stroke-width="8" fill="none" stroke-linecap="round"/>
+<rect width="1600" height="900" fill="#fff" opacity=".04"/>
+</svg>
