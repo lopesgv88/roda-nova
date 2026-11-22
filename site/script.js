@@ -3,6 +3,16 @@ const burger=document.querySelector('.burger'),menu=document.querySelector('.nav
 burger?.addEventListener('click',()=>menu.classList.toggle('open'));
 menu?.addEventListener('click',e=>{if(e.target.tagName==='A')menu.classList.remove('open')});
 
+// ===== Meta Pixel (Meta Ads) =====
+// TODO: coloque o ID do Pixel (so numeros) para ativar PageView, Lead e Contact.
+const META_PIXEL_ID='';
+if(META_PIXEL_ID){
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init',META_PIXEL_ID);fbq('track','PageView');
+}
+const track=(ev)=>{try{window.fbq&&fbq('track',ev)}catch{}};
+document.querySelectorAll('[data-track]').forEach(a=>a.addEventListener('click',()=>track(a.dataset.track)));
+
 // quote form
 // TODO: troque FORM_ENDPOINT por um endpoint real (ex.: Formspree/Web3Forms) para receber os leads por e-mail.
 const FORM_ENDPOINT='';
@@ -18,7 +28,7 @@ document.querySelectorAll('form[data-quote]').forEach(f=>{
       }else{
         console.info('Quote request (no endpoint configured):',data);
       }
-      f.reset();ok.style.display='block';
+      track('Lead');f.reset();ok.style.display='block';
     }catch{
       alert('Sorry, something went wrong. Please call us instead.');
     }
