@@ -213,7 +213,7 @@ export function Intro({ ready, onFinish }: { ready: boolean; onFinish: () => voi
           <Text style={s.title}>
             Roda <Text style={s.titleOrange}>Nova</Text>
           </Text>
-          <Text style={s.tag}>Sua roda transformada na hora</Text>
+          <Text style={s.tag}>Reforme uma roda em poucos segundos!</Text>
         </Animated.View>
       </View>
 
