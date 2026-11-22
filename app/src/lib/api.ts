@@ -101,7 +101,10 @@ export const api = {
   legal: (doc: string) => request<LegalDoc>(`/legal/${doc}`),
   history: () => request<HistoryItem[]>("/history"),
   deleteHistory: (id: number) => request<{ ok: true }>(`/history/${id}`, { method: "DELETE" }),
-  plans: () => request<{ plans: Plan[] }>("/plans"),
+  plans: () => request<{ plans: Plan[]; webCheckout?: boolean }>("/plans"),
+  // Cobrança da versão WEB (Stripe). No app do Android a assinatura segue pela Google Play.
+  stripeCheckout: (plan: string) => request<{ url: string }>("/billing/stripe/checkout", json({ plan })),
+  stripePortal: () => request<{ url: string }>("/billing/stripe/portal", { method: "POST" }),
   selectPlan: (plan: string) => request<Me>("/plans/select", json({ plan })),
 
   async paintWheels(img: LocalImage, o: { color: string; finish?: string; details?: string }) {

@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, Linking, ScrollView, Text, View } from "react-native";
+import { Alert, Linking, Platform, ScrollView, Text, View } from "react-native";
 import { Btn, Input, Notice } from "../../components/ui";
 import { API_URL, api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
@@ -21,6 +21,15 @@ export default function Account() {
       ? `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent("Olá! Preciso de ajuda com o Roda Nova.")}`
       : `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Ajuda com o Roda Nova")}`;
     Linking.openURL(url).catch(() => Alert.alert("Não foi possível abrir o contato."));
+  };
+
+  // Versão web: abre o portal do Stripe (trocar cartão, ver cobranças, cancelar). No app do Android isso é pela Google Play.
+  const manageSubscription = async () => {
+    try {
+      window.location.href = (await api.stripePortal()).url;
+    } catch (e: any) {
+      Alert.alert("Não foi possível", e.message);
+    }
   };
 
   const confirmDelete = () =>
@@ -66,6 +75,11 @@ export default function Account() {
         <View style={{ marginTop: 14 }}>
           <Btn label="Ver planos" onPress={() => router.push("/plans")} />
         </View>
+        {Platform.OS === "web" && me && me.plan !== "free" ? (
+          <View style={{ marginTop: 10 }}>
+            <Btn kind="ghost" label="Gerenciar ou cancelar assinatura" onPress={manageSubscription} />
+          </View>
+        ) : null}
       </View>
 
       {SUPPORT_WHATSAPP || SUPPORT_EMAIL ? <Btn kind="ghost" label="Falar com a gente" onPress={contact} /> : null}

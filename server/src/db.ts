@@ -41,6 +41,7 @@ if (!userCols.includes("plan")) db.exec("ALTER TABLE users ADD COLUMN plan TEXT 
 if (!userCols.includes("terms_accepted_at")) db.exec("ALTER TABLE users ADD COLUMN terms_accepted_at TEXT");
 if (!userCols.includes("terms_version")) db.exec("ALTER TABLE users ADD COLUMN terms_version TEXT");
 if (!userCols.includes("subscription_until")) db.exec("ALTER TABLE users ADD COLUMN subscription_until TEXT");
+if (!userCols.includes("stripe_customer_id")) db.exec("ALTER TABLE users ADD COLUMN stripe_customer_id TEXT");
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS generations (

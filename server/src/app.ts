@@ -20,6 +20,7 @@ import { FREE_LIBRARY_LIMIT, PLANS, planById, planByProductId } from "./plans.js
 import { buildEditPrompt, checkScope } from "./scope.js";
 import { EditDriftError, editWheelsOnly } from "./wheelEdit.js";
 import { Limiter, LoginGuard } from "./security.js";
+import { stripeEnabled, stripeRequest, verifyStripeSignature } from "./stripe.js";
 import { openaiTranscribe, type Transcriber } from "./transcribe.js";
 
 const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
@@ -64,6 +65,17 @@ export async function buildApp(opts: AppOptions = {}) {
     trustProxy: process.env.TRUST_PROXY === "true", // true quando atrás de Render/Railway/Nginx
   });
   const provider = () => opts.provider ?? getProvider();
+
+  // Guarda o corpo cru do JSON: o aviso de pagamento do Stripe só pode ser conferido com o texto exato que chegou.
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, done) => {
+    (req as any).rawBody = body;
+    try {
+      done(null, body ? JSON.parse(body as string) : {});
+    } catch (e) {
+      (e as any).statusCode = 400;
+      done(e as Error, undefined);
+    }
+  });
 
   // ---------- Proteção contra abuso ----------
   const globalLimiter = new Limiter(240, 60_000); // por IP
@@ -348,7 +360,8 @@ export async function buildApp(opts: AppOptions = {}) {
   app.get("/termos", page("terms"));
   app.get("/excluir-conta", page("deletion"));
 
-  app.get("/plans", async () => ({ plans: PLANS }));
+  // webCheckout: a versão web pode cobrar pelo Stripe (o app do Android ignora e segue pela Google Play)
+  app.get("/plans", async () => ({ plans: PLANS, webCheckout: stripeEnabled() }));
 
   // Escolher plano. Sem gateway de pagamento ligado, só o plano grátis funciona;
   // PLANS_UNLOCK_FOR_TESTING=true libera os pagos sem cobrar (apenas para testes).
@@ -416,6 +429,126 @@ export async function buildApp(opts: AppOptions = {}) {
         break; // CANCELLATION (vale até vencer), BILLING_ISSUE, TEST etc.: só registramos
     }
     record();
+    return { ok: true };
+  });
+
+  // ---------- Cobrança na WEB (Stripe) ----------
+  // Só vale para a versão web. A Google Play continua cobrando o app do Android pelo RevenueCat.
+  const webBase = (req: FastifyRequest) => process.env.WEB_BASE_URL?.replace(/\/$/, "") ?? `https://${req.headers.host}`;
+
+  // Cria o checkout (página segura do Stripe) para o plano escolhido. Assinatura mensal por cartão (Apple Pay incluso).
+  app.post("/billing/stripe/checkout", { preHandler: auth }, async (req, reply) => {
+    if (!stripeEnabled()) return reply.code(503).send({ error: "A cobrança pela web ainda não está disponível.", code: "payment_unavailable" });
+    const plan = planById(String((req.body as any)?.plan ?? ""));
+    if (!plan || plan.id === "free") return reply.code(400).send({ error: "Plano inválido." });
+    const userId = uid(req);
+    const u = db.prepare("SELECT email, stripe_customer_id FROM users WHERE id=?").get(userId) as { email: string; stripe_customer_id: string | null } | undefined;
+    if (!u) return reply.code(401).send({ error: "Sessão inválida. Entre novamente." });
+    const base = webBase(req);
+    try {
+      const session = await stripeRequest<{ url: string }>("POST", "/checkout/sessions", {
+        mode: "subscription",
+        locale: "pt-BR",
+        client_reference_id: String(userId),
+        ...(u.stripe_customer_id ? { customer: u.stripe_customer_id } : { customer_email: u.email }),
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: "brl",
+              unit_amount: Math.round(plan.priceBRL * 100),
+              recurring: { interval: "month" },
+              product_data: { name: `Roda Nova ${plan.name}`, description: `${plan.credits} rodas por mês` },
+            },
+          },
+        ],
+        metadata: { userId: String(userId), plan: plan.id },
+        subscription_data: { metadata: { userId: String(userId), plan: plan.id } },
+        success_url: `${base}/app/plans?checkout=success`,
+        cancel_url: `${base}/app/plans?checkout=cancel`,
+      });
+      return { url: session.url };
+    } catch (e) {
+      console.error("[stripe checkout]", e);
+      return reply.code(502).send({ error: "Não foi possível abrir o pagamento agora. Tente de novo em instantes." });
+    }
+  });
+
+  // Portal do Stripe: o cliente troca o cartão, vê as cobranças e cancela a assinatura.
+  app.post("/billing/stripe/portal", { preHandler: auth }, async (req, reply) => {
+    if (!stripeEnabled()) return reply.code(503).send({ error: "A cobrança pela web ainda não está disponível.", code: "payment_unavailable" });
+    const u = db.prepare("SELECT stripe_customer_id FROM users WHERE id=?").get(uid(req)) as { stripe_customer_id: string | null } | undefined;
+    if (!u?.stripe_customer_id) return reply.code(404).send({ error: "Você ainda não tem assinatura pela web." });
+    try {
+      const s = await stripeRequest<{ url: string }>("POST", "/billing_portal/sessions", { customer: u.stripe_customer_id, return_url: `${webBase(req)}/app/` });
+      return { url: s.url };
+    } catch (e) {
+      console.error("[stripe portal]", e);
+      return reply.code(502).send({ error: "Não foi possível abrir o gerenciamento agora. Tente de novo em instantes." });
+    }
+  });
+
+  // O Stripe avisa aqui quando uma cobrança é paga (1ª e renovações) ou a assinatura é cancelada.
+  // Configure no Stripe: Desenvolvedores → Webhooks → URL .../billing/stripe e copie o segredo (whsec_...) para STRIPE_WEBHOOK_SECRET.
+  app.post("/billing/stripe", async (req, reply) => {
+    const secret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!secret) return reply.code(503).send({ error: "Cobrança não configurada." });
+    const raw: string = (req as any).rawBody ?? "";
+    if (!verifyStripeSignature(raw, req.headers["stripe-signature"] as string | undefined, secret)) return reply.code(400).send({ error: "Assinatura inválida." });
+
+    const ev = req.body as any;
+    if (!ev?.id || !ev?.type) return reply.code(400).send({ error: "Evento inválido." });
+    const eventId = `stripe:${ev.id}`;
+    if (db.prepare("SELECT 1 FROM billing_events WHERE id=?").get(eventId)) return { ok: true, duplicate: true }; // o aviso pode chegar repetido
+
+    const obj = ev.data?.object ?? {};
+    let userId: number | null = null;
+    let handled = "";
+    try {
+      switch (String(ev.type)) {
+        case "invoice.paid": {
+          // metadados do plano ficam na assinatura; o Stripe os repete na fatura
+          const subId: string | undefined = obj.subscription ?? obj.parent?.subscription_details?.subscription;
+          let meta = obj.subscription_details?.metadata ?? obj.parent?.subscription_details?.metadata ?? obj.lines?.data?.[0]?.metadata;
+          if (!meta?.userId && subId) meta = (await stripeRequest("GET", `/subscriptions/${subId}`))?.metadata;
+          const uid_ = Number(meta?.userId);
+          const plan = planById(String(meta?.plan ?? ""));
+          const periodEnd = Number(obj.lines?.data?.[0]?.period?.end);
+          const user = Number.isInteger(uid_) && uid_ > 0 ? (db.prepare("SELECT id FROM users WHERE id=?").get(uid_) as any) : undefined;
+          userId = user?.id ?? null;
+          // só libera rodas se pagou de verdade (valor > 0), o plano é nosso e o período ainda vale
+          if (user && plan && plan.id !== "free" && Number(obj.amount_paid) > 0 && periodEnd > 0) {
+            const until = new Date(periodEnd * 1000).toISOString();
+            if (new Date(until) > new Date()) {
+              db.prepare("UPDATE users SET plan=?, credits = credits + ?, subscription_until=?, stripe_customer_id=COALESCE(?, stripe_customer_id) WHERE id=?").run(
+                plan.id, plan.credits, until, obj.customer ? String(obj.customer) : null, user.id,
+              );
+              handled = "creditos";
+            }
+          }
+          break;
+        }
+        case "customer.subscription.deleted": {
+          // assinatura acabou: volta ao grátis (as rodas que sobraram continuam)
+          const metaId = Number(obj.metadata?.userId);
+          const byId = metaId > 0 ? (db.prepare("SELECT id FROM users WHERE id=?").get(metaId) as any) : undefined;
+          const u2 = byId ?? (obj.customer ? (db.prepare("SELECT id FROM users WHERE stripe_customer_id=?").get(String(obj.customer)) as any) : undefined);
+          userId = u2?.id ?? null;
+          if (u2) {
+            db.prepare("UPDATE users SET plan='free', subscription_until=NULL WHERE id=?").run(u2.id);
+            handled = "cancelada";
+          }
+          break;
+        }
+        default:
+          break; // outros eventos: só registramos
+      }
+    } catch (e) {
+      console.error("[stripe webhook]", e);
+      return reply.code(500).send({ error: "Falha ao processar." }); // o Stripe tenta de novo
+    }
+    db.prepare("INSERT OR IGNORE INTO billing_events (id, user_id, type, product_id) VALUES (?,?,?,?)").run(eventId, userId, String(ev.type), handled || null);
     return { ok: true };
   });
 

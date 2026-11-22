@@ -1,6 +1,6 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, ScrollView, Text, View } from "react-native";
 import { Btn, Notice } from "../components/ui";
 import { ApiError, api, type Plan } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -15,11 +15,33 @@ export default function Plans() {
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  // Versão web: o servidor diz se já dá para cobrar pelo Stripe. O app do Android nunca usa isso (segue pela Google Play).
+  const [webCheckout, setWebCheckout] = useState(false);
+  const { checkout } = useLocalSearchParams<{ checkout?: string }>();
 
   useEffect(() => {
-    api.plans().then((r) => setPlans(r.plans)).catch((e) => setErr(e.message));
+    api.plans().then((r) => { setPlans(r.plans); setWebCheckout(Platform.OS === "web" && !!r.webCheckout); }).catch((e) => setErr(e.message));
     void refresh();
   }, [refresh]);
+
+  // Volta do pagamento (web): confere se o plano já foi ativado (o Stripe avisa o servidor em alguns segundos).
+  useEffect(() => {
+    if (Platform.OS !== "web" || checkout !== "success") return;
+    let on = true;
+    (async () => {
+      for (let i = 0; i < 10 && on; i++) {
+        const m = await api.me().catch(() => null);
+        if (m && m.plan !== "free") {
+          await refresh();
+          if (on) Alert.alert("Plano ativado!", "Pagamento confirmado. Suas rodas já estão na sua conta.", [{ text: "Começar", onPress: () => { finishOnboarding(); router.replace("/"); } }]);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+      if (on) Alert.alert("Pagamento recebido", "Suas rodas chegam em instantes. Se não aparecerem em alguns minutos, fale com a gente.");
+    })();
+    return () => { on = false; };
+  }, [checkout, refresh, finishOnboarding]);
 
   const leave = () => {
     finishOnboarding();
@@ -28,6 +50,17 @@ export default function Plans() {
 
   const choose = async (p: Plan) => {
     if (p.id === "free") return leave();
+    // Versão web: abre a página segura de pagamento do Stripe (cartão / Apple Pay) e volta para cá.
+    if (webCheckout) {
+      setBusy(p.id);
+      try {
+        window.location.href = (await api.stripeCheckout(p.id)).url;
+      } catch (e) {
+        setBusy(null);
+        Alert.alert("Não foi possível", (e as ApiError).message);
+      }
+      return;
+    }
     setBusy(p.id);
     try {
       // Versão instalada pela loja: compra de verdade (Google Play / App Store) pelo RevenueCat.
@@ -120,6 +153,11 @@ export default function Plans() {
         })}
       </View>
 
+      {webCheckout ? (
+        <Text style={{ color: C.muted, textAlign: "center", marginTop: 18, fontSize: 13, lineHeight: 19 }}>
+          Pagamento seguro pelo Stripe, no cartão ou Apple Pay. Renova todo mês e você cancela quando quiser, na aba Conta.
+        </Text>
+      ) : null}
       {onboarding ? (
         <Text style={{ color: C.muted, textAlign: "center", marginTop: 18, fontSize: 13 }}>Você pode ver os planos de novo quando quiser, na aba Conta.</Text>
       ) : null}
