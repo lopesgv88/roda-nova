@@ -7,3 +7,6 @@ Site estático (HTML/CSS/JS, sem build). Abra `index.html` ou publique a pasta e
 - Antes/depois do topo: trocar `before.svg` e `after.svg` por fotos reais (mesmo enquadramento, ex.: before.jpg/after.jpg, e ajustar o `src` no `index.html`). Seção "Our work" também usa blocos de cor.
 - Formulário: definir `FORM_ENDPOINT` em `script.js` (Formspree, Web3Forms etc.) para receber os leads.
 - Dados estruturados (JSON-LD) no `<head>` para SEO local.
+
+## Logotipo
+`logo.svg` (branco, para fundo escuro), `logo-dark.svg` (preto, para fundo claro) e `favicon.svg`. Vetor puro, sem fonte, escala sem perder qualidade.

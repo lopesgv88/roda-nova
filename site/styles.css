@@ -285,3 +285,9 @@ a,button{-webkit-tap-highlight-color:transparent}
   footer li{margin-bottom:0}
   .logo{min-height:44px}
 }
+
+/* logo */
+.logo img{height:40px;width:auto}
+.brand img{height:104px;width:auto}
+footer .logo img{height:56px}
+@media(max-width:960px){.nav .logo img{height:36px}.brand img{height:88px}}
