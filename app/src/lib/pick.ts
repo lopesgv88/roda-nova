@@ -1,5 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import type { LocalImage } from "./api";
 
 const base: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], quality: 0.9 };
@@ -24,6 +24,8 @@ export async function fromGallery(multiple = false, crop = false): Promise<Local
 
 /** Foto do carro ou da roda para o Estúdio: câmera ou galeria, sem cortar (a foto vai inteira, em pé ou deitada). */
 export function chooseSource(): Promise<LocalImage | null> {
+  // No navegador o próprio seletor do celular já oferece "Fototeca", "Tirar foto" e "Escolher arquivo".
+  if (Platform.OS === "web") return fromGallery().then((r) => r[0] ?? null);
   return new Promise((resolve) => {
     Alert.alert("Foto do carro ou da roda", "De onde quer pegar a foto?", [
       { text: "Câmera", onPress: () => fromCamera().then(resolve) },

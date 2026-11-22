@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { ActivityIndicator, Platform, Pressable, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import "../lib/webAlert";
 import { Intro } from "../components/Intro";
 import { AuthProvider, useAuth } from "../lib/auth";
 import { C } from "../lib/theme";

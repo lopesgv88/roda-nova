@@ -9,8 +9,42 @@ async function download(url: string): Promise<File> {
   return File.downloadFileAsync(fileUrl(url), new File(Paths.cache, `rodanova-${Date.now()}.${ext}`));
 }
 
+/**
+ * Navegador: abre o menu de compartilhar do aparelho (no iPhone tem "Salvar imagem", WhatsApp etc.).
+ * Se o navegador não tiver esse menu, baixa o arquivo.
+ */
+async function webShare(url: string) {
+  const res = await fetch(fileUrl(url));
+  const blob = await res.blob();
+  const name = `rodanova-${Date.now()}.${blob.type.includes("png") ? "png" : blob.type.includes("webp") ? "webp" : "jpg"}`;
+  const file = new window.File([blob], name, { type: blob.type });
+  const nav = navigator as Navigator & { canShare?: (d: unknown) => boolean };
+  if (nav.share && nav.canShare?.({ files: [file] })) {
+    try {
+      await nav.share({ files: [file], title: "Roda Nova" });
+    } catch (e: any) {
+      if (e?.name !== "AbortError") throw e; // fechar o menu não é erro
+    }
+    return;
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+}
+
 /** Salva a imagem na galeria do celular. */
 export async function saveToGallery(url: string) {
+  if (Platform.OS === "web") {
+    try {
+      return await webShare(url);
+    } catch {
+      return Alert.alert("Não foi possível salvar", "Tente de novo em instantes.");
+    }
+  }
   try {
     const p = await MediaLibrary.requestPermissionsAsync(true); // só gravar, sem ler a galeria
     if (!p.granted) {
@@ -28,6 +62,13 @@ export async function saveToGallery(url: string) {
 
 /** Abre o menu de compartilhar (WhatsApp, etc.). */
 export async function shareImage(url: string) {
+  if (Platform.OS === "web") {
+    try {
+      return await webShare(url);
+    } catch {
+      return Alert.alert("Não foi possível compartilhar a imagem.");
+    }
+  }
   try {
     const f = await download(url);
     if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(f.uri);

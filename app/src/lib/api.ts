@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import { File } from "expo-file-system";
+import { Platform } from "react-native";
 
 /** URL do servidor: EXPO_PUBLIC_API_URL, ou o IP do PC que serve o Expo (porta 3000). */
 function resolveBase(): string {
@@ -73,8 +74,14 @@ export interface Parsed { make?: string; model?: string; year?: number; color?: 
 export interface Voice extends Parsed { text: string }
 
 export type LocalImage = { uri: string; mime?: string | null };
-// O fetch do Expo (SDK 54+) não aceita { uri, name, type }; precisa de um File (Blob) do expo-file-system.
-const filePart = (img: LocalImage, _name: string): Blob => new File(img.uri) as unknown as Blob;
+// Celular: o fetch do Expo (SDK 54+) não aceita { uri, name, type }; precisa de um File (Blob) do expo-file-system.
+// Navegador: o seletor devolve um endereço blob:/data:, que se lê com fetch() e vira um Blob de verdade.
+const isWeb = Platform.OS === "web";
+async function filePart(img: LocalImage, _name: string): Promise<Blob> {
+  if (isWeb) return (await fetch(img.uri)).blob();
+  return new File(img.uri) as unknown as Blob;
+}
+const audioExt = (type: string) => (/webm/.test(type) ? "webm" : /ogg/.test(type) ? "ogg" : /wav/.test(type) ? "wav" : /mpeg|mp3/.test(type) ? "mp3" : "m4a");
 
 export const api = {
   login: (email: string, password: string) => request<{ token: string; email: string }>("/auth/login", json({ email, password })),
@@ -93,12 +100,12 @@ export const api = {
   plans: () => request<{ plans: Plan[] }>("/plans"),
   selectPlan: (plan: string) => request<Me>("/plans/select", json({ plan })),
 
-  paintWheels(img: LocalImage, o: { color: string; finish?: string; details?: string }) {
+  async paintWheels(img: LocalImage, o: { color: string; finish?: string; details?: string }) {
     const f = new FormData();
     f.append("color", o.color);
     if (o.finish) f.append("finish", o.finish);
     if (o.details) f.append("details", o.details);
-    f.append("photo", filePart(img, "car"));
+    f.append("photo", await filePart(img, "car"));
     return request<PaintResult>("/ai/wheel-paint", { method: "POST", body: f }, 180_000);
   },
 
@@ -106,14 +113,17 @@ export const api = {
   entry: (id: number) => request<Entry>(`/library/entries/${id}`),
   deleteEntry: (id: number) => request<{ ok: true }>(`/library/entries/${id}`, { method: "DELETE" }),
   suggest: (q: string) => request<{ items: string[] }>(`/library/suggest?q=${encodeURIComponent(q)}`),
-  transcribe(uri: string) {
+  async transcribe(uri: string) {
     const f = new FormData();
-    f.append("audio", new File(uri) as unknown as Blob);
+    if (isWeb) {
+      const blob = await (await fetch(uri)).blob();
+      f.append("audio", blob, `voice.${audioExt(blob.type)}`); // o servidor usa a extensão para o tipo do áudio
+    } else f.append("audio", new File(uri) as unknown as Blob);
     return request<Voice>("/voice/transcribe", { method: "POST", body: f });
   },
   parse: (text: string) => request<Parsed>("/voice/parse", json({ text })),
 
-  saveEntry(o: {
+  async saveEntry(o: {
     make: string; model: string; year?: string; color?: string; notes?: string;
     before?: LocalImage; after?: LocalImage; others?: LocalImage[];
     beforeFile?: string; afterFile?: string;
@@ -126,9 +136,9 @@ export const api = {
     if (o.notes) f.append("notes", o.notes);
     if (o.beforeFile) f.append("beforeFile", o.beforeFile);
     if (o.afterFile) f.append("afterFile", o.afterFile);
-    if (o.before) f.append("before", filePart(o.before, "before"));
-    if (o.after) f.append("after", filePart(o.after, "after"));
-    o.others?.forEach((img, i) => f.append("other", filePart(img, `other${i}`)));
+    if (o.before) f.append("before", await filePart(o.before, "before"));
+    if (o.after) f.append("after", await filePart(o.after, "after"));
+    for (const [i, img] of (o.others ?? []).entries()) f.append("other", await filePart(img, `other${i}`));
     return request<Entry>("/library/entries", { method: "POST", body: f });
   },
 };
