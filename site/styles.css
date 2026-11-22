@@ -291,3 +291,5 @@ a,button{-webkit-tap-highlight-color:transparent}
 .brand img{height:104px;width:auto}
 footer .logo img{height:56px}
 @media(max-width:960px){.nav .logo img{height:36px}.brand img{height:88px}}
+
+@media(max-width:960px){.sc-quote{flex:1.5}.sc-call{flex:1}}
