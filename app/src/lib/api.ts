@@ -4,6 +4,10 @@ import { Platform } from "react-native";
 
 /** URL do servidor: EXPO_PUBLIC_API_URL, ou o IP do PC que serve o Expo (porta 3000). */
 function resolveBase(): string {
+  // Versão web: o próprio servidor entrega o site, então a API fica no MESMO endereço de onde o site foi aberto
+  // (app.rodanovaapp.com, roda-nova-api.onrender.com...). Assim não há bloqueio entre sites (CORS). Em desenvolvimento
+  // (localhost) segue a variável abaixo.
+  if (typeof window !== "undefined" && Platform.OS === "web" && !/^(localhost|127\.)/.test(window.location.hostname)) return window.location.origin;
   if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, "");
   const host = Constants.expoConfig?.hostUri?.split(":")[0];
   return `http://${host ?? "localhost"}:3000`;
