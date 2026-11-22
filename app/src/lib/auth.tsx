@@ -1,7 +1,7 @@
-import * as SecureStore from "expo-secure-store";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, setToken, setUnauthorizedHandler, type Me } from "./api";
 import { stopBilling } from "./billing";
+import { storage } from "./storage";
 
 interface AuthState {
   ready: boolean;
@@ -40,14 +40,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMe(null);
     setOnboarding(false);
     void stopBilling();
-    await SecureStore.deleteItemAsync(KEY).catch(() => {});
+    await storage.remove(KEY).catch(() => {});
   }, []);
 
   useEffect(() => {
     setUnauthorizedHandler(() => void signOut());
     (async () => {
       try {
-        const raw = await SecureStore.getItemAsync(KEY);
+        const raw = await storage.get(KEY);
         if (raw) {
           const s = JSON.parse(raw);
           setToken(s.token);
@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(r.token);
       setEmail(r.email);
       setOnboarding(register); // conta nova -> mostra os planos
-      await SecureStore.setItemAsync(KEY, JSON.stringify(r)).catch(() => {});
+      await storage.set(KEY, JSON.stringify(r)).catch(() => {});
       void refresh();
     },
     [refresh],
