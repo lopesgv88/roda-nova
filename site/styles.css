@@ -305,3 +305,5 @@ footer .logo img{height:56px}
 .hero h1 em{font-size:clamp(2.6rem,12.2vw,4.8rem)}
 .hero .lead{margin-top:30px}
 @media(max-width:960px){.brand img{height:72px}.hero .lead{margin-top:30px}}
+
+.hero .lead .dream{display:block;margin-top:14px;font-family:"Playfair Display",Georgia,serif;font-style:italic;font-weight:700;font-size:1.2em;color:#fff}
