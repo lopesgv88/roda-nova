@@ -4,7 +4,8 @@ import jwt from "@fastify/jwt";
 import multipart from "@fastify/multipart";
 import fstatic from "@fastify/static";
 import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual, randomUUID } from "node:crypto";
-import { existsSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { config } from "./config.js";
@@ -83,6 +84,20 @@ export async function buildApp(opts: AppOptions = {}) {
   await app.register(jwt, { secret: config.jwtSecret });
   await app.register(multipart, { limits: { fileSize: 15 * 1024 * 1024, files: 12 } });
   await app.register(fstatic, { root: config.uploadsDir, prefix: "/files/" });
+
+  // Versão web do app (para quem usa iPhone/Safari): arquivos do `expo export` em server/web, servidos em /app/.
+  // Só liga se a pasta existir; não muda nada para o app do Android.
+  const webRoot = fileURLToPath(new URL("../web", import.meta.url));
+  if (existsSync(path.join(webRoot, "index.html"))) {
+    await app.register(fstatic, { root: webRoot, prefix: "/app/", decorateReply: false });
+    app.get("/app", async (_req, reply) => reply.redirect("/app/"));
+    app.setNotFoundHandler(async (req, reply) => {
+      // telas internas do app (ex.: /app/library) devolvem o index.html; o resto segue 404 normal
+      if (req.method === "GET" && req.url.startsWith("/app/") && !path.extname(req.url.split("?")[0]))
+        return reply.type("text/html; charset=utf-8").send(readFileSync(path.join(webRoot, "index.html")));
+      return reply.code(404).send({ message: `Route ${req.method}:${req.url} not found`, error: "Not Found", statusCode: 404 });
+    });
+  }
 
   const auth = async (req: FastifyRequest, reply: FastifyReply) => {
     try {

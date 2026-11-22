@@ -74,6 +74,14 @@
         }
       ]
     ],
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "experiments": {
+      "baseUrl": "/app"
+    },
     "extra": {
       "router": {
         "asyncRoutes": {

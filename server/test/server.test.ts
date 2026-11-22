@@ -214,6 +214,21 @@ describe("créditos e planos", () => {
     expect(ok.json()).toMatchObject({ plan: "pro", credits: 103 });
   });
 
+  it("serve a versão web em /app/ (e telas internas); rotas da API seguem normais", async () => {
+    const a = await buildApp({ provider: prov });
+    const root = await a.inject({ method: "GET", url: "/app/" });
+    expect(root.statusCode).toBe(200);
+    expect(root.headers["content-type"]).toMatch(/text\/html/);
+    const inner = await a.inject({ method: "GET", url: "/app/library" });
+    expect(inner.statusCode).toBe(200);
+    expect(inner.body).toContain("<html");
+    expect((await a.inject({ method: "GET", url: "/app" })).statusCode).toBe(302);
+    // fora de /app/ continua 404 de API e a saúde segue ok
+    expect((await a.inject({ method: "GET", url: "/nao-existe" })).statusCode).toBe(404);
+    expect((await a.inject({ method: "GET", url: "/health" })).statusCode).toBe(200);
+    expect((await a.inject({ method: "GET", url: "/me" })).statusCode).toBe(401);
+  });
+
   it("plano grátis guarda no máximo 7 rodas; plano pago é ilimitado", async () => {
     const b = await buildApp({ provider: prov, unlockPlans: true });
     const t = await signup(b, "lib1@b.com");
