@@ -307,3 +307,10 @@ footer .logo img{height:56px}
 @media(max-width:960px){.brand img{height:72px}.hero .lead{margin-top:30px}}
 
 .hero .lead .dream{display:block;margin-top:14px;font-family:"Playfair Display",Georgia,serif;font-style:italic;font-weight:700;font-size:1.2em;color:#fff}
+
+/* real photos: portrait before/after */
+.ba{aspect-ratio:4/5;max-height:none}
+.ba-wrap{width:min(560px,100%)}
+.ba-img{object-position:50% 55%}
+.g1{background:linear-gradient(rgba(0,0,0,.0),rgba(0,0,0,.0)),url(after.jpg) center 60%/cover no-repeat}
+@media(min-width:961px){.ba{max-height:82vh}}
