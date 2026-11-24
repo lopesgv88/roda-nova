@@ -320,3 +320,8 @@ html{background:#0b0d10}
 body{max-width:480px;margin:0 auto;box-shadow:0 0 60px rgba(0,0,0,.5);min-height:100vh}
 .sticky-cta{left:50%;right:auto;width:min(480px,100%);transform:translateX(-50%)}
 .ba-wrap{width:100%}
+
+/* spacing: more air under logo, headline lines closer together */
+.hero .brand{margin-bottom:40px}
+.hero .h1-top{line-height:1.1}
+.hero h1 em{margin-top:2px;line-height:1}
