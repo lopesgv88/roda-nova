@@ -152,7 +152,7 @@ footer a:hover{color:var(--accent-2)}
 
 .fab{position:fixed;right:18px;bottom:18px;z-index:60;display:none;background:var(--accent);color:#fff;padding:14px 22px;border-radius:999px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.3)}
 
-@media(max-width:960px){
+@media all{
   .hero .wrap,.spot .wrap{grid-template-columns:1fr}
   .grid-3,.why{grid-template-columns:1fr}
   .steps,.stats .wrap{grid-template-columns:repeat(2,1fr)}
@@ -226,14 +226,14 @@ section:not(.hero):not(.spot):not(.areas):not(.quote-sec){background:transparent
 .quote-sec{background:#f4f5f6}
 .qwrap{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
 .quote-sec .quote-card{box-shadow:var(--shadow);border:1px solid var(--line)}
-@media(max-width:960px){.qwrap{grid-template-columns:1fr}.ba{aspect-ratio:4/3}.nav ul{background:#0b0d10}}
+@media all{.qwrap{grid-template-columns:1fr}.ba{aspect-ratio:4/3}.nav ul{background:#0b0d10}}
 
 /* ===== Mobile-first (Meta Ads traffic) ===== */
 html{-webkit-text-size-adjust:100%}
 a,button{-webkit-tap-highlight-color:transparent}
 .nav-call{display:none}
 .sticky-cta{display:none}
-@media(max-width:960px){
+@media all{
   body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
   .topbar{display:none}
   .nav .wrap{height:60px}
@@ -278,7 +278,7 @@ a,button{-webkit-tap-highlight-color:transparent}
   .sc-quote{background:#fff;color:#0b0d10}
 }
 @media(max-width:520px){form .row{grid-template-columns:1fr 1fr}}
-@media(max-width:960px){
+@media all{
   [id]{scroll-margin-top:72px}
   .service a.more{display:flex;align-items:center;min-height:48px}
   footer li a{display:inline-block;padding:10px 0;min-height:44px}
@@ -290,11 +290,11 @@ a,button{-webkit-tap-highlight-color:transparent}
 .logo img{height:40px;width:auto}
 .brand img{height:104px;width:auto}
 footer .logo img{height:56px}
-@media(max-width:960px){.nav .logo img{height:36px}.brand img{height:88px}}
+@media all{.nav .logo img{height:36px}.brand img{height:88px}}
 
-@media(max-width:960px){.sc-quote{flex:1.5}.sc-call{flex:1}}
+@media all{.sc-quote{flex:1.5}.sc-call{flex:1}}
 
-@media(max-width:960px){.sc-quote{flex:1}}
+@media all{.sc-quote{flex:1}}
 
 /* headline: light line side by side, big highlighted word below */
 .hero h1{max-width:none;font-weight:400}
@@ -304,7 +304,7 @@ footer .logo img{height:56px}
 .brand img{height:104px}
 .hero h1 em{font-size:clamp(2.6rem,12.2vw,4.8rem)}
 .hero .lead{margin-top:30px}
-@media(max-width:960px){.brand img{height:72px}.hero .lead{margin-top:30px}}
+@media all{.brand img{height:72px}.hero .lead{margin-top:30px}}
 
 .hero .lead .dream{display:block;margin-top:14px;font-family:"Playfair Display",Georgia,serif;font-style:italic;font-weight:700;font-size:1.2em;color:#fff}
 
@@ -313,4 +313,10 @@ footer .logo img{height:56px}
 .ba-wrap{width:min(560px,100%)}
 .ba-img{object-position:50% 55%}
 .g1{background:linear-gradient(rgba(0,0,0,.0),rgba(0,0,0,.0)),url(after.jpg) center 60%/cover no-repeat}
-@media(min-width:961px){.ba{max-height:82vh}}
+
+
+/* always mobile: on wide screens show a centered phone-width column */
+html{background:#0b0d10}
+body{max-width:480px;margin:0 auto;box-shadow:0 0 60px rgba(0,0,0,.5);min-height:100vh}
+.sticky-cta{left:50%;right:auto;width:min(480px,100%);transform:translateX(-50%)}
+.ba-wrap{width:100%}
