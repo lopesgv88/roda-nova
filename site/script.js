@@ -83,3 +83,20 @@ document.getElementById('year').textContent=new Date().getFullYear();
     img.style.setProperty('--ty',((0.5-p)*40).toFixed(0)+'px');}
   addEventListener('scroll',()=>{if(!ticking){ticking=true;requestAnimationFrame(upd)}},{passive:true});upd();
 })();
+
+// featured bathroom card: 3D entrance, then auto before/after sweeps (back and forth twice) that rest on the result
+(function(){
+  const card=document.getElementById('bathCard'),ba=document.getElementById('ba2');if(!card||!ba)return;
+  const set=v=>ba.style.setProperty('--pos',v+'%');
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce||!('IntersectionObserver' in window)){set(0);ba.classList.add('done');return;}
+  const legs=[[10,1000],[90,1200],[10,1200],[90,1200],[0,1100]]; // [target %, ms]; last leg rests on the AFTER photo
+  const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+  function run(){let i=0,from=92,t0=null;
+    (function step(ts){if(t0===null)t0=ts;const [to,dur]=legs[i],p=Math.min((ts-t0)/dur,1);
+      set(from+(to-from)*ease(p));
+      if(p>=1){from=to;i++;t0=null;if(i>=legs.length){ba.classList.add('done');return}}
+      requestAnimationFrame(step)})(performance.now());}
+  new IntersectionObserver((es,ob)=>{es.forEach(e=>{if(e.isIntersecting){
+    card.classList.add('in');setTimeout(run,900);ob.disconnect();}})},{threshold:.35}).observe(card);
+})();

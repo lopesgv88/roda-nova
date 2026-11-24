@@ -348,3 +348,14 @@ body{max-width:480px;margin:0 auto;box-shadow:0 0 60px rgba(0,0,0,.5);min-height
 #numbers .slabs{margin-right:-14%}
 #numbers{padding-top:36px}
 #numbers .slabs img{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 4%),linear-gradient(to bottom,transparent 0,#000 8%,#000 92%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent 0,#000 4%),linear-gradient(to bottom,transparent 0,#000 8%,#000 92%,transparent 100%);mask-composite:intersect}
+
+/* ===== featured bathroom card: auto before/after in 3D ===== */
+.service-feature{overflow:visible}
+.service-feature .body{padding-top:26px}
+.ba3d{perspective:1100px;perspective-origin:50% 30%}
+.ba-card{border-radius:16px 16px 0 0;aspect-ratio:4/5;box-shadow:0 14px 26px rgba(0,0,0,.16);transform-origin:50% 100%;touch-action:auto}
+.ba-card .ba-line,.ba-card .ba-tag{transition:opacity .6s ease}
+.ba-card.done .ba-line,.ba-card.done .ba-tag-l{opacity:0}
+.anim .ba-card{opacity:0;transform:rotateX(58deg) translateY(70px) scale(.9);transition:opacity .7s ease,transform 1.2s cubic-bezier(.2,.9,.2,1)}
+.anim .service-feature.in .ba-card{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.ba-card{transition:none}}
