@@ -57,3 +57,29 @@ document.querySelectorAll('form[data-quote]').forEach(f=>{
   setTimeout(()=>requestAnimationFrame(step),700);
 })();
 document.getElementById('year').textContent=new Date().getFullYear();
+
+// stats: zoom-in reveal, count-up and floating 3D slabs on scroll
+(function(){
+  const sec=document.getElementById('numbers');if(!sec)return;
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce||!('IntersectionObserver' in window))return;
+  document.documentElement.classList.add('anim');
+  const stats=[...sec.querySelectorAll('.stat')];
+  const ease=t=>1-Math.pow(1-t,3);
+  stats.forEach(s=>{s.querySelector('b').textContent='0'+(s.dataset.suffix||'')});
+  function count(s,delay){
+    const el=s.querySelector('b'),to=+s.dataset.to,suf=s.dataset.suffix||'',dur=1500;
+    setTimeout(()=>{const t0=performance.now();
+      (function tick(now){const p=Math.min((now-t0)/dur,1);el.textContent=Math.round(to*ease(p))+suf;if(p<1)requestAnimationFrame(tick)})(t0)},delay);
+  }
+  new IntersectionObserver((es,ob)=>{es.forEach(e=>{if(e.isIntersecting){
+    sec.classList.add('in');stats.forEach((s,i)=>count(s,i*220+150));ob.disconnect();}})},{threshold:.3}).observe(sec);
+  // slabs tilt + drift with scroll position
+  const img=sec.querySelector('.slabs img');let ticking=false;
+  function upd(){ticking=false;const r=sec.getBoundingClientRect(),vh=innerHeight;
+    const p=Math.max(0,Math.min(1,(vh-r.top)/(vh+r.height)));
+    img.style.setProperty('--ry',(-16+p*30).toFixed(1)+'deg');
+    img.style.setProperty('--rx',(5-p*8).toFixed(1)+'deg');
+    img.style.setProperty('--ty',((0.5-p)*40).toFixed(0)+'px');}
+  addEventListener('scroll',()=>{if(!ticking){ticking=true;requestAnimationFrame(upd)}},{passive:true});upd();
+})();
