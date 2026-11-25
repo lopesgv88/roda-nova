@@ -108,3 +108,22 @@ document.getElementById('year').textContent=new Date().getFullYear();
     else if(!e.isIntersecting&&active){active=false;reset();}
   })},{threshold:[0,.45]}).observe(card.querySelector('.ba3d'));
 })();
+
+// kitchen video card: 3D entrance + text from behind, video plays only while visible (saves data and battery)
+(function(){
+  const card=document.getElementById('kitchenCard');if(!card)return;
+  const vid=card.querySelector('video'),wrap=card.querySelector('.ba3d');if(!vid||!wrap)return;
+  vid.muted=true;
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce||!('IntersectionObserver' in window)){vid.controls=true;return;}
+  let started=false,active=false,timer=null;
+  function play(tries){const p=vid.play();if(p&&p.catch)p.catch(err=>{
+    if(err&&err.name==='AbortError'&&tries>0&&active){setTimeout(()=>play(tries-1),150);}
+    else if(err&&err.name==='NotAllowedError'){vid.controls=true;}});}
+  // start fetching shortly before the card is reached (never after playback has begun)
+  new IntersectionObserver((es,ob)=>{es.forEach(e=>{if(e.isIntersecting){ob.disconnect();if(!started&&!active){started=true;vid.preload='auto';vid.load();}}})},{rootMargin:'700px 0px'}).observe(wrap);
+  new IntersectionObserver(es=>{es.forEach(e=>{
+    if(e.isIntersecting&&e.intersectionRatio>=.4&&!active){active=true;started=true;card.classList.add('in');timer=setTimeout(()=>card.classList.add('text-in'),900);play(2);}
+    else if(!e.isIntersecting&&active){active=false;clearTimeout(timer);vid.pause();card.classList.remove('in','text-in');}
+  })},{threshold:[0,.4]}).observe(wrap);
+})();
