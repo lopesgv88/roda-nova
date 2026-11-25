@@ -383,3 +383,5 @@ body{max-width:480px;margin:0 auto;box-shadow:0 0 60px rgba(0,0,0,.5);min-height
 /* video cards: simple fade-in from the left (no 3D); video starts only when fully visible */
 .anim .service-feature .vid-card{opacity:0;transform:translateX(-48px);transition:opacity .8s ease,transform .8s cubic-bezier(.2,.8,.2,1)}
 .anim .service-feature.in .vid-card{opacity:1;transform:none}
+
+.art-floor+.body{padding-top:26px}
