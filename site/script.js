@@ -98,5 +98,5 @@ document.getElementById('year').textContent=new Date().getFullYear();
       if(p>=1){from=to;i++;t0=null;if(i>=legs.length){ba.classList.add('done');return}}
       requestAnimationFrame(step)})(performance.now());}
   new IntersectionObserver((es,ob)=>{es.forEach(e=>{if(e.isIntersecting){
-    card.classList.add('in');setTimeout(run,900);ob.disconnect();}})},{threshold:.35}).observe(card);
+    card.classList.add('in');setTimeout(()=>card.classList.add('text-in'),1000);setTimeout(run,700);ob.disconnect();}})},{threshold:.25}).observe(card.querySelector('.ba3d'));
 })();
