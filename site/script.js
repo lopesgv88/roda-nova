@@ -115,3 +115,18 @@ function initVideoCard(id){
   })},{rootMargin:'-64px 0px -88px 0px',threshold:steps}).observe(wrap);
 }
 initVideoCard('bathCard');initVideoCard('kitchenCard');
+
+// preparation video: fade in from the left, plays only while on screen
+(function(){
+  const box=document.querySelector('.prep-vid');if(!box)return;
+  const vid=box.querySelector('video');vid.muted=true;
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce||!('IntersectionObserver' in window)){vid.controls=true;return;}
+  let started=false,active=false;
+  function play(n){const p=vid.play();if(p&&p.catch)p.catch(e=>{if(e&&e.name==='AbortError'&&n>0&&active)setTimeout(()=>play(n-1),150);else if(e&&e.name==='NotAllowedError')vid.controls=true;});}
+  new IntersectionObserver((es,ob)=>{es.forEach(e=>{if(e.isIntersecting){ob.disconnect();if(!started&&!active){started=true;vid.preload='auto';vid.load();}}})},{rootMargin:'700px 0px'}).observe(box);
+  new IntersectionObserver(es=>{es.forEach(e=>{
+    if(e.isIntersecting&&e.intersectionRatio>=.5&&!active){active=true;started=true;box.classList.add('in');setTimeout(()=>{if(active)play(2)},700);}
+    else if(!e.isIntersecting&&active){active=false;vid.pause();box.classList.remove('in');}
+  })},{threshold:[0,.5]}).observe(box);
+})();
