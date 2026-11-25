@@ -84,19 +84,27 @@ document.getElementById('year').textContent=new Date().getFullYear();
   addEventListener('scroll',()=>{if(!ticking){ticking=true;requestAnimationFrame(upd)}},{passive:true});upd();
 })();
 
-// featured bathroom card: 3D entrance, then auto before/after sweeps (back and forth twice) that rest on the result
+// featured bathroom card: 3D entrance, then auto before/after sweeps (back and forth twice) that rest on the result.
+// Replays every time the card comes back into view.
 (function(){
   const card=document.getElementById('bathCard'),ba=document.getElementById('ba2');if(!card||!ba)return;
   const set=v=>ba.style.setProperty('--pos',v+'%');
   const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(reduce||!('IntersectionObserver' in window)){set(0);ba.classList.add('done');return;}
-  const legs=[[10,1000],[90,1200],[10,1200],[90,1200],[0,1100]]; // [target %, ms]; last leg rests on the AFTER photo
+  const legs=[[8,900],[92,1100],[8,1100],[92,1100],[0,1000]]; // [target %, ms]; last leg rests on the AFTER photo
   const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
-  function run(){let i=0,from=92,t0=null;
-    (function step(ts){if(t0===null)t0=ts;const [to,dur]=legs[i],p=Math.min((ts-t0)/dur,1);
+  let token=0,timers=[],active=false;
+  function reset(){token++;timers.forEach(clearTimeout);timers=[];set(92);ba.classList.remove('done');card.classList.remove('in','text-in');}
+  function run(tok){let i=0,from=92,t0=null;
+    (function step(ts){if(tok!==token)return;if(t0===null)t0=ts;const [to,dur]=legs[i],p=Math.min((ts-t0)/dur,1);
       set(from+(to-from)*ease(p));
       if(p>=1){from=to;i++;t0=null;if(i>=legs.length){ba.classList.add('done');return}}
       requestAnimationFrame(step)})(performance.now());}
-  new IntersectionObserver((es,ob)=>{es.forEach(e=>{if(e.isIntersecting){
-    card.classList.add('in');setTimeout(()=>card.classList.add('text-in'),1000);setTimeout(run,700);ob.disconnect();}})},{threshold:.25}).observe(card.querySelector('.ba3d'));
+  function start(){const tok=++token;card.classList.add('in');
+    timers.push(setTimeout(()=>{if(tok===token)card.classList.add('text-in')},1000));
+    timers.push(setTimeout(()=>{if(tok===token)run(tok)},800));}
+  new IntersectionObserver(es=>{es.forEach(e=>{
+    if(e.isIntersecting&&e.intersectionRatio>=.45&&!active){active=true;start();}
+    else if(!e.isIntersecting&&active){active=false;reset();}
+  })},{threshold:[0,.45]}).observe(card.querySelector('.ba3d'));
 })();
