@@ -84,46 +84,34 @@ document.getElementById('year').textContent=new Date().getFullYear();
   addEventListener('scroll',()=>{if(!ticking){ticking=true;requestAnimationFrame(upd)}},{passive:true});upd();
 })();
 
-// featured bathroom card: 3D entrance, then auto before/after sweeps (back and forth twice) that rest on the result.
-// Replays every time the card comes back into view.
-(function(){
-  const card=document.getElementById('bathCard'),ba=document.getElementById('ba2');if(!card||!ba)return;
-  const set=v=>ba.style.setProperty('--pos',v+'%');
-  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if(reduce||!('IntersectionObserver' in window)){set(0);ba.classList.add('done');return;}
-  const legs=[[8,900],[92,1100],[8,1100],[92,1100],[0,1000]]; // [target %, ms]; last leg rests on the AFTER photo
-  const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
-  let token=0,timers=[],active=false;
-  function reset(){token++;timers.forEach(clearTimeout);timers=[];set(92);ba.classList.remove('done');card.classList.remove('in','text-in');}
-  function run(tok){let i=0,from=92,t0=null;
-    (function step(ts){if(tok!==token)return;if(t0===null)t0=ts;const [to,dur]=legs[i],p=Math.min((ts-t0)/dur,1);
-      set(from+(to-from)*ease(p));
-      if(p>=1){from=to;i++;t0=null;if(i>=legs.length){ba.classList.add('done');return}}
-      requestAnimationFrame(step)})(performance.now());}
-  function start(){const tok=++token;card.classList.add('in');
-    timers.push(setTimeout(()=>{if(tok===token)card.classList.add('text-in')},1000));
-    timers.push(setTimeout(()=>{if(tok===token)run(tok)},800));}
-  new IntersectionObserver(es=>{es.forEach(e=>{
-    if(e.isIntersecting&&e.intersectionRatio>=.45&&!active){active=true;start();}
-    else if(!e.isIntersecting&&active){active=false;reset();}
-  })},{threshold:[0,.45]}).observe(card.querySelector('.ba3d'));
-})();
-
-// kitchen video card: 3D entrance + text from behind, video plays only while visible (saves data and battery)
-(function(){
-  const card=document.getElementById('kitchenCard');if(!card)return;
+// video cards (bathroom + kitchen): fade in from the left; the video starts only once the card has fully appeared and is 100% on screen;
+// it pauses when the card leaves the screen and everything replays on the next visit.
+function initVideoCard(id){
+  const card=document.getElementById(id);if(!card)return;
   const vid=card.querySelector('video'),wrap=card.querySelector('.ba3d');if(!vid||!wrap)return;
   vid.muted=true;
   const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(reduce||!('IntersectionObserver' in window)){vid.controls=true;return;}
-  let started=false,active=false,timer=null;
+  let started=false,active=false,faded=false,full=false,playing=false,timers=[];
+  const clear=()=>{timers.forEach(clearTimeout);timers=[]};
   function play(tries){const p=vid.play();if(p&&p.catch)p.catch(err=>{
     if(err&&err.name==='AbortError'&&tries>0&&active){setTimeout(()=>play(tries-1),150);}
     else if(err&&err.name==='NotAllowedError'){vid.controls=true;}});}
+  function tryPlay(){if(active&&faded&&full&&!playing){playing=true;play(2);}}
   // start fetching shortly before the card is reached (never after playback has begun)
   new IntersectionObserver((es,ob)=>{es.forEach(e=>{if(e.isIntersecting){ob.disconnect();if(!started&&!active){started=true;vid.preload='auto';vid.load();}}})},{rootMargin:'700px 0px'}).observe(wrap);
+  // 1) appear: simple fade-in once a part of the card shows
   new IntersectionObserver(es=>{es.forEach(e=>{
-    if(e.isIntersecting&&e.intersectionRatio>=.4&&!active){active=true;started=true;card.classList.add('in');timer=setTimeout(()=>card.classList.add('text-in'),900);play(2);}
-    else if(!e.isIntersecting&&active){active=false;clearTimeout(timer);vid.pause();card.classList.remove('in','text-in');}
-  })},{threshold:[0,.4]}).observe(wrap);
-})();
+    if(e.isIntersecting&&!active){active=true;started=true;card.classList.add('in');
+      timers.push(setTimeout(()=>{faded=true;tryPlay()},900));
+      timers.push(setTimeout(()=>card.classList.add('text-in'),700));}
+    else if(!e.isIntersecting&&active){active=false;faded=false;full=false;playing=false;clear();vid.pause();card.classList.remove('in','text-in');}
+  })},{threshold:[0,.05]}).observe(wrap);
+  // 2) "100% visible": the whole video frame is on screen, clear of the sticky header and bottom bar
+  const steps=[];for(let i=0;i<=20;i++)steps.push(i/20);
+  new IntersectionObserver(es=>{es.forEach(e=>{
+    const room=innerHeight-152,h=e.boundingClientRect.height,need=h>room?Math.max(.5,room/h*.9):.98;
+    full=e.intersectionRatio>=need;tryPlay();
+  })},{rootMargin:'-64px 0px -88px 0px',threshold:steps}).observe(wrap);
+}
+initVideoCard('bathCard');initVideoCard('kitchenCard');
