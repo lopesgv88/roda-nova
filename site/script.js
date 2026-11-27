@@ -13,25 +13,18 @@ if(META_PIXEL_ID){
 const track=(ev)=>{try{window.fbq&&fbq('track',ev)}catch{}};
 document.querySelectorAll('[data-track]').forEach(a=>a.addEventListener('click',()=>track(a.dataset.track)));
 
-// quote form
-// TODO: troque FORM_ENDPOINT por um endpoint real (ex.: Formspree/Web3Forms) para receber os leads por e-mail.
-const FORM_ENDPOINT='';
+// quote form: opens the visitor's own messages app with a ready-to-send SMS to the business number
+const SMS_NUMBER='+15087622895';
 document.querySelectorAll('form[data-quote]').forEach(f=>{
-  f.addEventListener('submit',async e=>{
+  f.addEventListener('submit',e=>{
     e.preventDefault();
-    const ok=f.parentElement.querySelector('#form-ok')||document.getElementById('form-ok');
-    const data=Object.fromEntries(new FormData(f));
-    try{
-      if(FORM_ENDPOINT){
-        const r=await fetch(FORM_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(data)});
-        if(!r.ok)throw new Error();
-      }else{
-        console.info('Quote request (no endpoint configured):',data);
-      }
-      track('Lead');f.reset();ok.style.display='block';
-    }catch{
-      alert('Sorry, something went wrong. Please call us instead.');
-    }
+    const d=Object.fromEntries(new FormData(f));
+    const clean=s=>String(s||'').replace(/\s+/g,' ').trim().slice(0,80);
+    const msg="Hi! I'm "+clean(d.name)+". I'd like a free estimate for "+clean(d.project)+". My ZIP is "+clean(d.town)+".";
+    const ok=document.getElementById('form-ok');
+    track('Lead');
+    ok.style.display='block';
+    window.location.href='sms:'+SMS_NUMBER+'?&body='+encodeURIComponent(msg);
   });
 });
 // before/after slider: two sweeps left<->right, then user control

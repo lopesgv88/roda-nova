@@ -401,3 +401,5 @@ body{max-width:480px;margin:0 auto;box-shadow:0 0 60px rgba(0,0,0,.5);min-height
 .g4{background:url(g-master.webp) 48% 55%/cover no-repeat}
 .g5{background:url(g-kitchen.webp) 50% 55%/cover no-repeat}
 .g{background-color:#1d2227}
+
+#form-ok a{color:inherit;font-weight:700;text-decoration:underline}
