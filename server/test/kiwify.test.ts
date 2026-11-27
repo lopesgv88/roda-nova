@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import type { ImageProvider } from "../src/providers/types.js";
-import { KIWIFY_PLANS, kiwifyActionOf, kiwifyPlanOf, kiwifyValidUntil, verifyKiwifySignature } from "../src/kiwify.js";
+import { KIWIFY_PLANS, kiwifyActionOf, kiwifyPlanOf, kiwifyTokens, kiwifyValidUntil, verifyKiwifySignature } from "../src/kiwify.js";
 
 const TOKEN = "token_teste";
 const prov: ImageProvider = { name: "fake", classify: async () => ({ isCar: true, wheelsVisible: true, requestAboutWheelPaint: true }), edit: async (i) => i };
@@ -15,6 +15,25 @@ describe("verifyKiwifySignature", () => {
   it("recusa corpo alterado", () => expect(verifyKiwifySignature(body + " ", sign(body), TOKEN)).toBe(false));
   it("recusa token errado", () => expect(verifyKiwifySignature(body, sign(body, "outro"), TOKEN)).toBe(false));
   it("recusa sem assinatura", () => expect(verifyKiwifySignature(body, undefined, TOKEN)).toBe(false));
+  it("com vários tokens (um por webhook), vale se bater com qualquer um", () => {
+    const tokens = ["t_basico", "t_pro", "t_estudio"];
+    expect(verifyKiwifySignature(body, sign(body, "t_pro"), tokens)).toBe(true);
+    expect(verifyKiwifySignature(body, sign(body, "t_estudio"), tokens)).toBe(true);
+    expect(verifyKiwifySignature(body, sign(body, "outro"), tokens)).toBe(false);
+    expect(verifyKiwifySignature(body, sign(body, "t_pro"), [])).toBe(false);
+  });
+});
+
+describe("kiwifyTokens", () => {
+  it("separa por vírgula, espaço ou ponto e vírgula e ignora vazios", () => {
+    const old = process.env.KIWIFY_WEBHOOK_TOKEN;
+    process.env.KIWIFY_WEBHOOK_TOKEN = " a1 , b2;c3  ,, ";
+    expect(kiwifyTokens()).toEqual(["a1", "b2", "c3"]);
+    process.env.KIWIFY_WEBHOOK_TOKEN = "";
+    expect(kiwifyTokens()).toEqual([]);
+    if (old === undefined) delete process.env.KIWIFY_WEBHOOK_TOKEN;
+    else process.env.KIWIFY_WEBHOOK_TOKEN = old;
+  });
 });
 
 describe("kiwifyPlanOf / kiwifyActionOf", () => {
@@ -34,6 +53,8 @@ describe("kiwifyPlanOf / kiwifyActionOf", () => {
     expect(kiwifyActionOf({ webhook_event_type: "order_approved", order_status: "paid" }).action).toBe("grant");
     expect(kiwifyActionOf({ webhook_event_type: "subscription_renewed", order_status: "paid" }).action).toBe("grant");
     expect(kiwifyActionOf({ webhook_event_type: "order_approved", order_status: "waiting_payment" }).action).toBe("none");
+    expect(kiwifyActionOf({ webhook_event_type: "compra_aprovada", order_status: "paid" }).action).toBe("grant");
+    expect(kiwifyActionOf({ webhook_event_type: "compra_reembolsada" }).action).toBe("revoke");
     expect(kiwifyActionOf({ webhook_event_type: "order_refunded" }).action).toBe("revoke");
     expect(kiwifyActionOf({ webhook_event_type: "chargeback" }).action).toBe("revoke");
     expect(kiwifyActionOf({ webhook_event_type: "subscription_canceled" }).action).toBe("none");
@@ -180,6 +201,21 @@ describe("cobrança na web (Kiwify)", () => {
     expect((await app.inject({ method: "POST", url: "/billing/kiwify", payload: body, headers: { "content-type": "application/json" } })).statusCode).toBe(401);
     expect((await hook(order("ord_bad", "pro", u.email), "deadbeef")).statusCode).toBe(401);
     expect((await me(u.h)).plan).toBe("free");
+  });
+
+  it("aceita o aviso de qualquer um dos 3 webhooks (cada um com seu token)", async () => {
+    const old = process.env.KIWIFY_WEBHOOK_TOKEN;
+    process.env.KIWIFY_WEBHOOK_TOKEN = `${TOKEN}, token_pro ,token_estudio`;
+    try {
+      const u = await signup();
+      const before = (await me(u.h)).credits as number;
+      const body = JSON.stringify(order("ord_multi", "pro", u.email));
+      const r = await app.inject({ method: "POST", url: `/billing/kiwify?signature=${sign(body, "token_pro")}`, payload: body, headers: { "content-type": "application/json" } });
+      expect(r.statusCode).toBe(200);
+      expect((await me(u.h)).credits).toBe(before + 100);
+    } finally {
+      process.env.KIWIFY_WEBHOOK_TOKEN = old;
+    }
   });
 
   it("recusa aviso sem número do pedido", async () => {

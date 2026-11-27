@@ -6,7 +6,17 @@ import { planById, type Plan } from "./plans.js";
  * A Kiwify cobra o cliente na página de pagamento dela e avisa o servidor por webhook.
  * Ligada quando KIWIFY_WEBHOOK_TOKEN existe (o token que a Kiwify mostra ao criar o webhook).
  */
-export const kiwifyEnabled = () => !!process.env.KIWIFY_WEBHOOK_TOKEN;
+export const kiwifyEnabled = () => kiwifyTokens().length > 0;
+
+/**
+ * A Kiwify gera um token diferente para cada webhook (aqui são 3, um por plano).
+ * KIWIFY_WEBHOOK_TOKEN aceita todos, separados por vírgula: "token1,token2,token3".
+ */
+export const kiwifyTokens = (): string[] =>
+  (process.env.KIWIFY_WEBHOOK_TOKEN ?? "")
+    .split(/[\s,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 
 /** Um produto de assinatura da Kiwify por plano: ID do produto (painel da Kiwify) e link de pagamento. */
 export const KIWIFY_PLANS: Record<string, { productId: string; checkoutUrl: string }> = {
@@ -24,12 +34,17 @@ export function kiwifyCheckoutUrl(planId: string, email: string, userId: number)
 }
 
 /** A Kiwify assina o corpo do aviso: HMAC-SHA1 (hex) com o token, enviado no parâmetro "signature" da URL. */
-export function verifyKiwifySignature(raw: string, signature: string | undefined, token: string): boolean {
-  if (!signature || !token) return false;
-  const expected = createHmac("sha1", token).update(raw).digest("hex");
+export function verifyKiwifySignature(raw: string, signature: string | undefined, tokens: string | string[]): boolean {
+  const list = (Array.isArray(tokens) ? tokens : [tokens]).filter(Boolean);
+  if (!signature || !list.length) return false;
   const a = Buffer.from(signature.trim().toLowerCase());
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+  // vale se bater com qualquer um dos tokens (testa todos, sem parar no primeiro, para não vazar qual acertou)
+  let ok = false;
+  for (const token of list) {
+    const b = Buffer.from(createHmac("sha1", token).update(raw).digest("hex"));
+    if (a.length === b.length && timingSafeEqual(a, b)) ok = true;
+  }
+  return ok;
 }
 
 /** Descobre o plano do aviso: pelo ID do produto; se não bater, pelo nome do produto/plano. */
@@ -50,11 +65,11 @@ export type KiwifyAction = "grant" | "revoke" | "none";
 export function kiwifyActionOf(body: any): { action: KiwifyAction; event: string } {
   const event = String(body?.webhook_event_type ?? body?.order_status ?? "").toLowerCase();
   const status = String(body?.order_status ?? "").toLowerCase();
-  if (event === "order_approved" || event === "subscription_renewed") {
+  if (["order_approved", "compra_aprovada", "subscription_renewed"].includes(event)) {
     return { action: status && status !== "paid" ? "none" : "grant", event };
   }
   if (event === "paid") return { action: "grant", event };
-  if (["order_refunded", "refunded", "chargeback", "chargedback"].includes(event)) return { action: "revoke", event };
+  if (["order_refunded", "compra_reembolsada", "refunded", "chargeback", "chargedback"].includes(event)) return { action: "revoke", event };
   return { action: "none", event }; // subscription_canceled (vale até vencer), subscription_late, boleto gerado etc.
 }
 

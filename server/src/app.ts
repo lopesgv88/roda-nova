@@ -21,7 +21,7 @@ import { buildEditPrompt, checkScope } from "./scope.js";
 import { EditDriftError, editWheelsOnly } from "./wheelEdit.js";
 import { Limiter, LoginGuard } from "./security.js";
 import { stripeEnabled, stripeRequest, verifyStripeSignature } from "./stripe.js";
-import { kiwifyActionOf, kiwifyCheckoutUrl, kiwifyEnabled, kiwifyPlanOf, kiwifyValidUntil, verifyKiwifySignature } from "./kiwify.js";
+import { kiwifyActionOf, kiwifyCheckoutUrl, kiwifyEnabled, kiwifyPlanOf, kiwifyTokens, kiwifyValidUntil, verifyKiwifySignature } from "./kiwify.js";
 import { openaiTranscribe, type Transcriber } from "./transcribe.js";
 
 const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
@@ -558,7 +558,7 @@ export async function buildApp(opts: AppOptions = {}) {
   // ---------- Cobrança na WEB (Kiwify) ----------
   // Só vale para a versão web. O cliente paga na página da Kiwify (Pix, cartão ou boleto) e ela avisa o servidor.
   // Configure na Kiwify: Apps → Webhooks → URL .../billing/kiwify, eventos de compra aprovada, renovação, cancelamento e reembolso.
-  // O token que a Kiwify gera vai na variável KIWIFY_WEBHOOK_TOKEN.
+  // Cada webhook tem o seu token: todos vão na variável KIWIFY_WEBHOOK_TOKEN, separados por vírgula.
   app.post("/billing/kiwify/checkout", { preHandler: auth }, async (req, reply) => {
     if (!kiwifyEnabled()) return reply.code(503).send({ error: "A cobrança pela web ainda não está disponível.", code: "payment_unavailable" });
     const plan = planById(String((req.body as any)?.plan ?? ""));
@@ -572,11 +572,11 @@ export async function buildApp(opts: AppOptions = {}) {
   });
 
   app.post("/billing/kiwify", async (req, reply) => {
-    const token = process.env.KIWIFY_WEBHOOK_TOKEN;
-    if (!token) return reply.code(503).send({ error: "Cobrança não configurada." });
+    const tokens = kiwifyTokens();
+    if (!tokens.length) return reply.code(503).send({ error: "Cobrança não configurada." });
     const raw: string = (req as any).rawBody ?? "";
     const signature = (req.query as any)?.signature as string | undefined;
-    if (!verifyKiwifySignature(raw, signature, token)) return reply.code(401).send({ error: "Assinatura inválida." });
+    if (!verifyKiwifySignature(raw, signature, tokens)) return reply.code(401).send({ error: "Assinatura inválida." });
 
     const body = req.body as any;
     const orderId = String(body?.order_id ?? "");
