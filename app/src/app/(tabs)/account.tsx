@@ -28,7 +28,13 @@ export default function Account() {
     try {
       window.location.href = (await api.stripePortal()).url;
     } catch (e: any) {
-      Alert.alert("Não foi possível", e.message);
+      // Assinatura pela Kiwify (ou ainda sem portal): cancelar e trocar cartão é com a gente, pelo contato.
+      if (e?.code === "payment_unavailable" || e?.status === 404) {
+        Alert.alert("Gerenciar assinatura", "Para cancelar ou trocar a forma de pagamento, fale com a gente. Respondemos rápido.", [
+          { text: "Fechar", style: "cancel" },
+          { text: "Falar com a gente", onPress: contact },
+        ]);
+      } else Alert.alert("Não foi possível", e.message);
     }
   };
 

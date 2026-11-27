@@ -21,6 +21,7 @@ import { buildEditPrompt, checkScope } from "./scope.js";
 import { EditDriftError, editWheelsOnly } from "./wheelEdit.js";
 import { Limiter, LoginGuard } from "./security.js";
 import { stripeEnabled, stripeRequest, verifyStripeSignature } from "./stripe.js";
+import { kiwifyActionOf, kiwifyCheckoutUrl, kiwifyEnabled, kiwifyPlanOf, kiwifyValidUntil, verifyKiwifySignature } from "./kiwify.js";
 import { openaiTranscribe, type Transcriber } from "./transcribe.js";
 
 const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
@@ -361,7 +362,9 @@ export async function buildApp(opts: AppOptions = {}) {
   app.get("/excluir-conta", page("deletion"));
 
   // webCheckout: a versão web pode cobrar pelo Stripe (o app do Android ignora e segue pela Google Play)
-  app.get("/plans", async () => ({ plans: PLANS, webCheckout: stripeEnabled() }));
+  // webProvider: quem cobra na web (a Kiwify tem prioridade quando está ligada)
+  const webProvider = () => (kiwifyEnabled() ? "kiwify" : stripeEnabled() ? "stripe" : null);
+  app.get("/plans", async () => ({ plans: PLANS, webCheckout: webProvider() !== null, webProvider: webProvider() }));
 
   // Escolher plano. Sem gateway de pagamento ligado, só o plano grátis funciona;
   // PLANS_UNLOCK_FOR_TESTING=true libera os pagos sem cobrar (apenas para testes).
@@ -549,6 +552,63 @@ export async function buildApp(opts: AppOptions = {}) {
       return reply.code(500).send({ error: "Falha ao processar." }); // o Stripe tenta de novo
     }
     db.prepare("INSERT OR IGNORE INTO billing_events (id, user_id, type, product_id) VALUES (?,?,?,?)").run(eventId, userId, String(ev.type), handled || null);
+    return { ok: true };
+  });
+
+  // ---------- Cobrança na WEB (Kiwify) ----------
+  // Só vale para a versão web. O cliente paga na página da Kiwify (Pix, cartão ou boleto) e ela avisa o servidor.
+  // Configure na Kiwify: Apps → Webhooks → URL .../billing/kiwify, eventos de compra aprovada, renovação, cancelamento e reembolso.
+  // O token que a Kiwify gera vai na variável KIWIFY_WEBHOOK_TOKEN.
+  app.post("/billing/kiwify/checkout", { preHandler: auth }, async (req, reply) => {
+    if (!kiwifyEnabled()) return reply.code(503).send({ error: "A cobrança pela web ainda não está disponível.", code: "payment_unavailable" });
+    const plan = planById(String((req.body as any)?.plan ?? ""));
+    if (!plan || plan.id === "free") return reply.code(400).send({ error: "Plano inválido." });
+    const userId = uid(req);
+    const u = db.prepare("SELECT email FROM users WHERE id=?").get(userId) as { email: string } | undefined;
+    if (!u) return reply.code(401).send({ error: "Sessão inválida. Entre novamente." });
+    const url = kiwifyCheckoutUrl(plan.id, u.email, userId);
+    if (!url) return reply.code(400).send({ error: "Plano inválido." });
+    return { url };
+  });
+
+  app.post("/billing/kiwify", async (req, reply) => {
+    const token = process.env.KIWIFY_WEBHOOK_TOKEN;
+    if (!token) return reply.code(503).send({ error: "Cobrança não configurada." });
+    const raw: string = (req as any).rawBody ?? "";
+    const signature = (req.query as any)?.signature as string | undefined;
+    if (!verifyKiwifySignature(raw, signature, token)) return reply.code(401).send({ error: "Assinatura inválida." });
+
+    const body = req.body as any;
+    const orderId = String(body?.order_id ?? "");
+    if (!body || typeof body !== "object" || !orderId) return reply.code(400).send({ error: "Evento inválido." });
+    const { action, event } = kiwifyActionOf(body);
+    const eventId = `kiwify:${orderId}:${event}`;
+    if (db.prepare("SELECT 1 FROM billing_events WHERE id=?").get(eventId)) return { ok: true, duplicate: true }; // o aviso pode chegar repetido
+
+    // acha a conta: pelo e-mail da compra; se não bater, pelo ID que o nosso link de pagamento levou (sck)
+    const email = String(body?.Customer?.email ?? "").trim().toLowerCase();
+    let user = email ? (db.prepare("SELECT id FROM users WHERE email=?").get(email) as { id: number } | undefined) : undefined;
+    if (!user) {
+      const sck = Number(body?.TrackingParameters?.sck);
+      if (Number.isInteger(sck) && sck > 0) user = db.prepare("SELECT id FROM users WHERE id=?").get(sck) as { id: number } | undefined;
+    }
+    const plan = kiwifyPlanOf(body);
+    let handled = "";
+    try {
+      if (user && plan && plan.id !== "free") {
+        if (action === "grant") {
+          db.prepare("UPDATE users SET plan=?, credits = credits + ?, subscription_until=? WHERE id=?").run(plan.id, plan.credits, kiwifyValidUntil(body), user.id);
+          handled = "creditos";
+        } else if (action === "revoke") {
+          db.prepare("UPDATE users SET plan='free', subscription_until=NULL WHERE id=?").run(user.id); // reembolso/chargeback: volta ao grátis
+          handled = "revogada";
+        }
+      } else handled = user ? "produto de outro plano" : "usuario desconhecido";
+    } catch (e) {
+      console.error("[kiwify webhook]", e);
+      return reply.code(500).send({ error: "Falha ao processar." }); // a Kiwify tenta de novo
+    }
+    db.prepare("INSERT OR IGNORE INTO billing_events (id, user_id, type, product_id) VALUES (?,?,?,?)").run(eventId, user?.id ?? null, event, handled || null);
     return { ok: true };
   });
 

@@ -17,10 +17,15 @@ export default function Plans() {
   const [busy, setBusy] = useState<string | null>(null);
   // Versão web: o servidor diz se já dá para cobrar pelo Stripe. O app do Android nunca usa isso (segue pela Google Play).
   const [webCheckout, setWebCheckout] = useState(false);
+  const [webProvider, setWebProvider] = useState<"kiwify" | "stripe" | null>(null);
   const { checkout } = useLocalSearchParams<{ checkout?: string }>();
 
   useEffect(() => {
-    api.plans().then((r) => { setPlans(r.plans); setWebCheckout(Platform.OS === "web" && !!r.webCheckout); }).catch((e) => setErr(e.message));
+    api.plans().then((r) => {
+      setPlans(r.plans);
+      setWebCheckout(Platform.OS === "web" && !!r.webCheckout);
+      setWebProvider(r.webProvider ?? (r.webCheckout ? "stripe" : null));
+    }).catch((e) => setErr(e.message));
     void refresh();
   }, [refresh]);
 
@@ -50,11 +55,11 @@ export default function Plans() {
 
   const choose = async (p: Plan) => {
     if (p.id === "free") return leave();
-    // Versão web: abre a página segura de pagamento do Stripe (cartão / Apple Pay) e volta para cá.
+    // Versão web: abre a página segura de pagamento (Kiwify ou Stripe, conforme o servidor).
     if (webCheckout) {
       setBusy(p.id);
       try {
-        window.location.href = (await api.stripeCheckout(p.id)).url;
+        window.location.href = (webProvider === "kiwify" ? await api.kiwifyCheckout(p.id) : await api.stripeCheckout(p.id)).url;
       } catch (e) {
         setBusy(null);
         Alert.alert("Não foi possível", (e as ApiError).message);
@@ -155,7 +160,9 @@ export default function Plans() {
 
       {webCheckout ? (
         <Text style={{ color: C.muted, textAlign: "center", marginTop: 18, fontSize: 13, lineHeight: 19 }}>
-          Pagamento seguro pelo Stripe, no cartão ou Apple Pay. Renova todo mês e você cancela quando quiser, na aba Conta.
+          {webProvider === "kiwify"
+            ? "Pagamento seguro pela Kiwify, no cartão ou Pix. Use o mesmo e-mail da sua conta no Roda Nova. Renova todo mês e você cancela quando quiser. Depois de pagar, volte aqui: suas rodas aparecem em instantes."
+            : "Pagamento seguro pelo Stripe, no cartão ou Apple Pay. Renova todo mês e você cancela quando quiser, na aba Conta."}
         </Text>
       ) : null}
       {onboarding ? (
