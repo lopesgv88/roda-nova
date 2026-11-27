@@ -136,9 +136,6 @@ export default function Plans() {
                 <Text style={{ color: C.text, fontSize: 32, fontWeight: "900" }}>{free ? "Grátis" : brl(p.priceBRL)}</Text>
                 {!free ? <Text style={{ color: C.muted, fontSize: 15 }}> /mês</Text> : null}
               </View>
-              <Text style={{ color: C.accent, fontWeight: "700", marginTop: 2 }}>
-                {p.credits} novas rodas{free ? "" : " por mês"}
-              </Text>
               <View style={{ marginTop: 12, gap: 6 }}>
                 {p.perks.map((k) => (
                   <Text key={k} style={{ color: C.text, fontSize: 15 }}>✓  {k}</Text>
