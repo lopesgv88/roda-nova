@@ -31,7 +31,27 @@ describe("editWheelsOnly: só a roda pode mudar", () => {
     expect(calls).toHaveLength(1); // passou de primeira
   });
 
-  it("recusa (e tenta 2 vezes) quando a IA muda o carro fora da roda", async () => {
+  it("recusa quando a IA deixa a roda maior (mesmo enquadramento, mas a forma mudou)", async () => {
+    const img = await photo();
+    let calls = 0;
+    // a "IA" amplia o miolo da imagem (zoom ~1.4x): fora da roda quase não muda, mas a roda cresce
+    const p = provider(async (i) => {
+      calls++;
+      const m = await sharp(i.data).metadata();
+      const w = m.width!, h = m.height!;
+      const cw = Math.round(w / 1.4), ch = Math.round(h / 1.4);
+      const zoomed = await sharp(i.data)
+        .extract({ left: Math.round((w - cw) / 2), top: Math.round((h - ch) / 2), width: cw, height: ch })
+        .resize(w, h, { fit: "fill" })
+        .jpeg()
+        .toBuffer();
+      return { data: zoomed, mime: "image/jpeg" };
+    });
+    await expect(editWheelsOnly(p, img, "pinte", wheels)).rejects.toBeInstanceOf(EditDriftError);
+    expect(calls).toBe(3);
+  });
+
+  it("recusa (e tenta 3 vezes) quando a IA muda o carro fora da roda", async () => {
     const img = await photo();
     let calls = 0;
     // devolve a foto espelhada: mesmo formato, mas o carro mudou de lugar
@@ -40,7 +60,7 @@ describe("editWheelsOnly: só a roda pode mudar", () => {
       return { data: await sharp(i.data).flop().flip().jpeg().toBuffer(), mime: "image/jpeg" };
     });
     await expect(editWheelsOnly(p, img, "pinte", wheels)).rejects.toBeInstanceOf(EditDriftError);
-    expect(calls).toBe(2);
+    expect(calls).toBe(3);
   });
 
   it("recusa quando a IA muda o formato do recorte", async () => {
@@ -52,7 +72,7 @@ describe("editWheelsOnly: só a roda pode mudar", () => {
       return { data: await sharp(i.data).resize(m.width!, Math.round(m.height! * 0.6), { fit: "fill" }).jpeg().toBuffer(), mime: "image/jpeg" };
     });
     await expect(editWheelsOnly(p, img, "pinte", wheels)).rejects.toBeInstanceOf(EditDriftError);
-    expect(calls).toBe(2);
+    expect(calls).toBe(3);
   });
 
   it("amplia recorte pequeno antes de mandar para a IA", async () => {

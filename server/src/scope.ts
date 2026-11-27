@@ -33,6 +33,8 @@ REGRAS OBRIGATÓRIAS:
 - Altere SOMENTE as rodas/aros visíveis (todas as rodas aparentes, de forma consistente). Não pinte pneus, pinças de freio, calotas de centro a menos que pedido, nem a carroceria.
 - Preserve exatamente o carro, a cor da carroceria, o fundo, o enquadramento, a perspectiva, a resolução e a iluminação.
 - Mantenha CADA roda exatamente na mesma posição, tamanho, ângulo e formato da imagem original (nada pode se mover nem mudar de escala), inclusive os pneus. Só a cor e o acabamento do aro mudam.
+- NÃO redesenhe a roda: trate como uma TINTA aplicada por cima da foto. O diâmetro, a largura, o número e o formato dos raios, o furo central, a borda do aro, o pneu e a posição de cada pixel de contorno devem ficar idênticos ao original. Nunca aumente, diminua, estique, gire ou "melhore" a roda.
+- Preserve todos os detalhes reais: sujeira, sombras, reflexos, parafusos, bico da válvula, freio visível e textura do aro; só troque a cor/acabamento sobre eles.
 - Se a imagem for um recorte mostrando apenas as rodas, devolva o recorte com exatamente o mesmo enquadramento e proporção.
 - A nova pintura deve seguir a geometria real dos raios, respeitar sombras, reflexos e brilho da cena, com bordas limpas e aparência fotorealista.
 - Não adicione texto, marcas d'água, pessoas ou objetos. Devolva apenas a imagem editada.`;

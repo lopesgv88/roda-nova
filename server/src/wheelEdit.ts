@@ -15,13 +15,15 @@ export interface WheelEditInfo {
 }
 
 const PAD = 0.18; // folga ao redor das rodas no recorte
-const MASK_SCALE = 1.04; // a máscara cobre a caixa toda da roda (para não sobrar borda do aro sem pintar); a borda é suave
+const MASK_SCALE = 1.0; // a máscara cobre a caixa toda da roda (para não sobrar borda do aro sem pintar); a borda é suave
 const MAX_CROP_SIDE = 1280; // recorte enviado à IA (lado maior)
 const MIN_SEND_SIDE = 768; // recorte pequeno é ampliado até aqui: com poucos pixels a IA "reinventa" o enquadramento
 const MAX_CROP_AREA = 0.62; // se o recorte cobrir mais que isso da foto, não compensa recortar
 /** Diferença média (0-255) permitida FORA das rodas entre a foto original e o resultado da IA. Acima disso o carro mudou. */
 const DRIFT_MAX = Number(process.env.WHEEL_DRIFT_MAX ?? 18);
-const ATTEMPTS = 2;
+/** Correlação mínima (0-1) da forma da roda entre original e resultado. Abaixo disso a roda mudou de tamanho/forma. */
+const STRUCT_MIN = Number(process.env.WHEEL_STRUCT_MIN ?? 0.6);
+const ATTEMPTS = Number(process.env.WHEEL_ATTEMPTS ?? 3);
 
 /** A IA devolveu o carro alterado (tamanho da roda, para-choque, enquadramento) e não foi possível corrigir. */
 export class EditDriftError extends Error {
@@ -49,6 +51,41 @@ async function driftScore(orig: Buffer, patch: Buffer, alpha: Buffer, w: number,
   const score = idx.reduce((s, i) => s + Math.abs(a[i] - ma - (b[i] - mb)), 0) / idx.length;
   // se algo deu errado na conta, trata como "alterado" (melhor recusar do que entregar o carro deformado)
   return Number.isFinite(score) ? score : Infinity;
+}
+
+/**
+ * Compara a FORMA (bordas) da roda original com a da IA, dentro e ao redor da máscara. Cor e acabamento mudam as
+ * bordas pouco; roda maior/menor, raios diferentes ou aro deformado derrubam a correlação. 1 = mesma forma.
+ */
+async function structureScore(orig: Buffer, patch: Buffer, alpha: Buffer, w: number, h: number): Promise<number> {
+  const S = 96, SH = Math.max(24, Math.round((S * h) / w));
+  const grad = async (b: Buffer) => {
+    const g = await sharp(b).resize(S, SH, { fit: "fill" }).greyscale().normalise().raw().toBuffer();
+    const out = new Float32Array(g.length);
+    for (let y = 1; y < SH - 1; y++)
+      for (let x = 1; x < S - 1; x++) {
+        const i = y * S + x;
+        out[i] = Math.abs(g[i + 1] - g[i - 1]) + Math.abs(g[i + S] - g[i - S]);
+      }
+    return out;
+  };
+  const [a, b] = await Promise.all([grad(orig), grad(patch)]);
+  const m = await sharp(alpha, { raw: { width: w, height: h, channels: 1 } })
+    .resize(S, SH, { fit: "fill" }).blur(2).greyscale().raw().toBuffer();
+  const idx: number[] = [];
+  for (let i = 0; i < a.length; i++) if (m[i] > 8) idx.push(i); // dentro da roda e na borda
+  if (idx.length < 80) return 1;
+  const ma = idx.reduce((s, i) => s + a[i], 0) / idx.length;
+  const mb = idx.reduce((s, i) => s + b[i], 0) / idx.length;
+  let sab = 0, saa = 0, sbb = 0;
+  for (const i of idx) {
+    const da = a[i] - ma, db = b[i] - mb;
+    sab += da * db; saa += da * da; sbb += db * db;
+  }
+  // original sem nenhum detalhe na região (imagem lisa): não há forma para comparar
+  if (saa / idx.length < 1) return 1;
+  const corr = sab / Math.sqrt(saa * sbb || 1);
+  return Number.isFinite(corr) ? corr : 0;
 }
 
 export async function editWheelsOnly(
@@ -122,6 +159,8 @@ export async function editWheelsOnly(
     const patch = await sharp(edited.data).resize(width, height, { fit: "fill" }).removeAlpha().toBuffer();
     const drift = await driftScore(cropBuf, patch, alpha.data, alpha.info.width, alpha.info.height);
     if (drift > DRIFT_MAX) { lastReason = `a IA alterou o carro fora da roda (diferença ${drift.toFixed(1)})`; continue; }
+    const shape = await structureScore(cropBuf, patch, alpha.data, alpha.info.width, alpha.info.height);
+    if (shape < STRUCT_MIN) { lastReason = `a IA deformou ou redimensionou a roda (forma ${shape.toFixed(2)})`; continue; }
 
     const patchRgba = await sharp(patch)
       .joinChannel(alpha.data, { raw: { width: alpha.info.width, height: alpha.info.height, channels: 1 } })
