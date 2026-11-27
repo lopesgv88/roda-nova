@@ -3,7 +3,7 @@
 Site estático (HTML/CSS/JS, sem build). Abra `index.html` ou publique a pasta em qualquer hospedagem estática (Netlify, Cloudflare Pages, GitHub Pages).
 
 ## Para personalizar
-- Nome da empresa, telefone `(617) 555-0100`, e-mail, cidades atendidas e números de licença (MA HIC / CSL) — buscar no `index.html`.
+- Nome da empresa, telefone `(508) 762-2895`, e-mail (removido por enquanto), cidades atendidas e números de licença (MA HIC / CSL, removidos por enquanto) — buscar no `index.html`.
 - Antes/depois do topo: trocar `before.jpg` e `after.jpg` (fotos reais, mesmo enquadramento e proporção 3:4 vertical). Seção "Our work" também usa blocos de cor.
 - Formulário: definir `FORM_ENDPOINT` em `script.js` (Formspree, Web3Forms etc.) para receber os leads.
 - Dados estruturados (JSON-LD) no `<head>` para SEO local.
