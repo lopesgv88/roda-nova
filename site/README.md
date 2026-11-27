@@ -1,4 +1,4 @@
-# Lopes Bathroom — site (placeholder brand)
+# Lopes Bath & Kitchen — site (placeholder brand)
 
 Site estático (HTML/CSS/JS, sem build). Abra `index.html` ou publique a pasta em qualquer hospedagem estática (Netlify, Cloudflare Pages, GitHub Pages).
 
